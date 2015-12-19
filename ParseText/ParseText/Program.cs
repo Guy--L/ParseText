@@ -357,22 +357,22 @@ namespace ParseText
                 var intersectx = (iline.intercept - fline.intercept) / (fline.slope - iline.slope);
                 Console.WriteLine("intersectx: " + intersectx);
 
-                var mid = readings.Count(s => s.strain < intersectx);
-                var midtriple = readings.Skip(mid - 3).Take(3);
+                var mid = readings.TakeWhile(s => s.strain < intersectx);
+                var midtriple = readings.Skip(mid.Count() - 2).Take(3);
                 var mline = new Line(midtriple);
 
                 var ypstrain = (iline.intercept - mline.intercept) / (mline.slope - iline.slope);
-                var ypt = readings.Count(s => s.strain < ypstrain);
-                var yp = readings.Skip(ypt - 2).Take(2).ToArray();
+                var ypt = readings.TakeWhile(s => s.strain < ypstrain);
+                var yp = readings.Skip(ypt.Count() - 1).Take(2).ToArray();
                 var ypstress = (yp[1].stress - yp[0].stress) / (yp[1].strain - yp[0].strain) * (ypstrain - yp[0].strain) + yp[0].stress;
 
                 var bpstrain = (fline.intercept - mline.intercept) / (mline.slope - fline.slope);
-                var bpt = readings.Count(s => s.strain < bpstrain);
-                var bp = readings.Skip(bpt - 2).Take(2).ToArray();
+                var bpt = readings.TakeWhile(s => s.strain < bpstrain);
+                var bp = readings.Skip(bpt.Count() - 1).Take(2).ToArray();
                 var bpstress = (bp[1].stress - bp[0].stress) / (bp[1].strain - bp[0].strain) * (bpstrain - bp[0].strain) + bp[0].stress;
 
-                var cross = readings.Count(s => s.prime >= s.dprime);
-                var cr = readings.Skip(cross - 2).Take(2).ToArray();
+                var cross = readings.TakeWhile(s => s.prime >= s.dprime);
+                var cr = readings.Skip(cross.Count() - 1).Take(2).ToArray();
 
                 var pline = new Line(cr, c => c.prime);
                 var dline = new Line(cr, c => c.dprime);
