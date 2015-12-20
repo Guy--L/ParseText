@@ -372,14 +372,19 @@ namespace ParseText
                 var bpstress = (bp[1].stress - bp[0].stress) / (bp[1].strain - bp[0].strain) * (bpstrain - bp[0].strain) + bp[0].stress;
 
                 var cross = readings.TakeWhile(s => s.prime >= s.dprime);
+                // old formula
+                // var cr = readings.Skip(cross.Count() - 4).Take(2).ToArray();
+
                 var cr = readings.Skip(cross.Count() - 1).Take(2).ToArray();
 
                 var pline = new Line(cr, c => c.prime);
                 var dline = new Line(cr, c => c.dprime);
 
-                // = (("D" & M - "D" & M - 1) / ("C" & M - "C" & M - 1)) * (H24 - "C" & M) + "D" & M
-                var gstrain = (pline.intercept - dline.intercept) / ((cr[1].dprime - cr[0].dprime - cr[1].prime + cr[0].prime) / (cr[1].strain - cr[0].strain));
-                var gstress = (cr[1].prime - cr[0].prime) / (cr[1].strain - cr[0].strain) * (gstrain - cr[1].strain) + cr[1].prime;
+                var strd = cr[1].strain - cr[0].strain;
+                var denom = ((cr[1].dprime - cr[0].dprime) / strd - (cr[1].prime - cr[0].prime) / strd);
+
+                var gstrain = (pline.intercept - dline.intercept) / ((cr[1].dprime - cr[0].dprime)/strd - (cr[1].prime - cr[0].prime)/strd);
+                var gstress = (cr[1].prime - cr[0].prime) / strd * (gstrain - cr[1].strain) + cr[1].prime;
 
                 var gplateau = initial.Average(g => g.prime);
                 var dplateau = initial.Average(g => g.dprime);
