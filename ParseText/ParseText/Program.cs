@@ -130,6 +130,10 @@ namespace ParseText
         private static string _outfilename = @"{0} Rheology Analysis v3 with SPTT Entry Macro (MACRO v4.1) {1}";
         private static string _currentsample;
 
+        private static SolverContext context;
+        private static Model model = null;
+        private static Decision N0, TC;
+
         static void Main(string[] args)
         {
             _data = ConfigurationManager.AppSettings["datadirectory"];
@@ -244,6 +248,9 @@ namespace ParseText
                     samplename = sample;
                     string average = "=AVERAGE(L" + outrowi + ":L" + (outrowi + 3) + ")";
                     outrow.Cell(14).SetFormulaA1(average);
+
+                    average = "=AVERAGE(J" + outrowi + ":J" + (outrowi + 3) + ")";
+                    outrow.Cell(11).SetFormulaA1(average);
                 }
 
                 var can = row.Cell(1).GetValue<string>();
@@ -262,6 +269,8 @@ namespace ParseText
             
             outxl.SaveAs(Path.Combine(data, outfilename));
             Console.WriteLine("saved as " + outfilename);
+
+            Console.WriteLine(string.Join("", cat.ToArray()));
         }
 
         static Term N2Error(Decay curve, Decision n0, Decision tC, IEnumerable<Reading> data)
@@ -276,6 +285,9 @@ namespace ParseText
         private static int initialtake = 5;
         private static int finalskip = 32;
         private static int finaltake = 3;
+        private static double t95 = -Math.Log(.05);
+
+        private static List<string> cat = new List<string>();
 
         static void ReadFile(string file, IXLRow outrow)
         {
@@ -296,7 +308,7 @@ namespace ParseText
             }
             if (testType == TestType.Lather)
             {
-                /*
+                
                 var data = lines.Skip(firstline).Take(rowmap[(int)TestType.Lather]).Select(s => new Reading(s)).Where(d => d.rate > 99.0 && d.rate < 101.0).ToList();
                 var max = data.Max(d => d.normal);
                 var ninf = data.Where(d => d.time > 20).Average(d => d.normal);
@@ -311,13 +323,16 @@ namespace ParseText
                 //var g = mn.GoodnessOfFit.RSquared(x2fit.Select(x => p.Item1 + p.Item2 * x), y2fit); // == 1.0
 
                 // Create the model
-                SolverContext context = SolverContext.GetContext();
-                Model model = context.CreateModel();
-                // Add a decision
-                Decision N0 = new Decision(Domain.Real, "n0");
-                Decision TC = new Decision(Domain.Real, "tc");
-                model.AddDecisions(N0);
-                model.AddDecisions(TC);
+                if (model == null)
+                {
+                    context = SolverContext.GetContext();
+                    model = context.CreateModel();
+                    // Add a decisions
+                    N0 = new Decision(Domain.Real, "n0");
+                    TC = new Decision(Domain.Real, "tc");
+                    model.AddDecisions(N0);
+                    model.AddDecisions(TC);
+                }
 
                 N0.SetInitialValue(n0);
                 TC.SetInitialValue(-1 / p.Item2);
@@ -326,24 +341,29 @@ namespace ParseText
 
                 n2fit.ForEach(d =>
                 {
-                    Term t = -d.time / TC;
-                    Term r = N0 + (ninf - N0) * (1 - Math.Exp(t));
+                    Term r = N0 + (ninf - N0) * (1 - Model.Exp(-d.time / TC));
                     r -= d.normal;
                     r *= r;
                     cost.Add(r);
                 });
 
-                // Add a constraint
-                model.AddGoal("Chi2", GoalKind.Minimize, cost.ToTerm());
+                model.AddGoal("Chi2", GoalKind.Minimize, cost.ToTerm());            // add goal
 
                 var directive = new CompactQuasiNewtonDirective();
                 var solver = context.Solve(directive);
                 var report = solver.GetReport() as CompactQuasiNewtonReport;
                 Console.Write(report);
 
-                Console.WriteLine("N0: " + N0.GetDouble() + ", TC: " + TC.GetDouble());
-                Console.WriteLine("max " + max + "\nninf " + ninf + "\nint " + p.Item1 + "\nslope" + p.Item2 + "\nn0 " + n0 + "\ntc " + (-1 / p.Item2));
-                */
+                var chi2 = model.Goals.First().ToDouble();
+
+                outrow.Cell(6).SetValue<double>(chi2);
+                outrow.Cell(7).SetValue<double>(N0.GetDouble());
+                outrow.Cell(8).SetValue<double>(TC.GetDouble());
+                outrow.Cell(9).SetValue<double>(ninf);
+                outrow.Cell(10).SetValue<double>(TC.GetDouble() * t95);
+
+                Console.WriteLine("--> Chi2: " + chi2 + ", N0: " + N0.GetDouble() + ", TC: " + TC.GetDouble());
+                model.RemoveGoal(model.Goals.First());                              // remove goal for next model run                
             }
             if (testType == TestType.Oscillation)
             {
@@ -383,7 +403,7 @@ namespace ParseText
                 var strd = cr[1].strain - cr[0].strain;
                 var denom = ((cr[1].dprime - cr[0].dprime) / strd - (cr[1].prime - cr[0].prime) / strd);
 
-                var gstrain = (pline.intercept - dline.intercept) / ((cr[1].dprime - cr[0].dprime)/strd - (cr[1].prime - cr[0].prime)/strd);
+                var gstrain = (pline.intercept - dline.intercept) / denom;
                 var gstress = (cr[1].prime - cr[0].prime) / strd * (gstrain - cr[1].strain) + cr[1].prime;
 
                 var gplateau = initial.Average(g => g.prime);
@@ -409,7 +429,11 @@ namespace ParseText
 
                 var category = avg < max;
 
-                Console.WriteLine("\n"+_can+": >>>>  max: " + max + ", avg: "+avg+", category: "+category+"\n");
+                var db = "\n"+_can+": >>>>  max: " + max + ", avg: "+avg+", category: "+category+"\n";
+                if ("OSCPM".Contains(_can))
+                    cat.Add(db);
+
+                Console.WriteLine(db);
 
                 var at5 = data.First(t => t.time >= 5.0).shear;
                 var span = data.Max(t => t.time);
