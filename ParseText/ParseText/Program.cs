@@ -41,26 +41,6 @@ namespace ParseText
         }
     }
 
-    class Decay
-    {
-        public double Ninf;
-        public double N0 { get; set; }
-        public double TimeConstant { get; set; }
-
-        public Decay(double asym, double intc, double timec)
-        {
-            Ninf = asym;
-            N0 = intc;
-            TimeConstant = timec;
-        }
-
-        public double Evaluate(double t)
-        {
-            return N0 + (Ninf - N0) * (1 - Math.Exp(-t / TimeConstant));
-        }
-
-    }
-
     class Reading
     {
         public double stress;
@@ -269,16 +249,6 @@ namespace ParseText
             
             outxl.SaveAs(Path.Combine(data, outfilename));
             Console.WriteLine("saved as " + outfilename);
-
-            Console.WriteLine(string.Join("", cat.ToArray()));
-        }
-
-        static Term N2Error(Decay curve, Decision n0, Decision tC, IEnumerable<Reading> data)
-        {
-            curve.N0 = n0.ToDouble();
-            curve.TimeConstant = tC.ToDouble();
-
-            return data.Sum(d => Math.Pow(d.normal - curve.Evaluate(d.time), 2));
         }
 
         private static int initialskip = 4;
@@ -286,8 +256,6 @@ namespace ParseText
         private static int finalskip = 32;
         private static int finaltake = 3;
         private static double t95 = -Math.Log(.05);
-
-        private static List<string> cat = new List<string>();
 
         static void ReadFile(string file, IXLRow outrow)
         {
@@ -381,10 +349,38 @@ namespace ParseText
                 var midtriple = readings.Skip(mid.Count() - 2).Take(3);
                 var mline = new Line(midtriple);
 
-                var ypstrain = (iline.intercept - mline.intercept) / (mline.slope - iline.slope);
+
+                var ypstrain = (0 - mline.intercept) / (mline.slope - iline.slope);
                 var ypt = readings.TakeWhile(s => s.strain < ypstrain);
-                var yp = readings.Skip(ypt.Count() - 1).Take(2).ToArray();
+                var ypi = readings.Skip(ypt.Count() - 1).Take(2);
+                var yp = ypi.ToArray();
+
                 var ypstress = (yp[1].stress - yp[0].stress) / (yp[1].strain - yp[0].strain) * (ypstrain - yp[0].strain) + yp[0].stress;
+
+                //if (_can == "AC")
+                //{
+                //    Console.WriteLine(file);
+
+                //    Console.WriteLine("initial");
+                //    initial.ForEach(i => i.print());
+
+                //    Console.WriteLine("mid");
+                //    midtriple.ForEach(m => m.print());
+
+                //    Console.WriteLine("yppair");
+                //    yp.ForEach(y => y.print());
+
+                //    Console.WriteLine("initial slope: " + iline.slope + ", int: " + iline.intercept);
+                //    Console.WriteLine("mid slope: " + mline.slope + ", int: " + mline.intercept);
+
+                //    ypstrain = (0 - mline.intercept) / (mline.slope - iline.slope);
+                //    ypstress = (yp[1].stress - yp[0].stress) / (yp[1].strain - yp[0].strain) * (ypstrain - yp[0].strain) + yp[0].stress;
+
+                //    Console.WriteLine("ypstress: " + ypstress + ", ypstrain: " + ypstrain);
+
+                //    Console.ReadKey();
+                //}
+
 
                 var bpstrain = (fline.intercept - mline.intercept) / (mline.slope - fline.slope);
                 var bpt = readings.TakeWhile(s => s.strain < bpstrain);
@@ -424,16 +420,12 @@ namespace ParseText
                 var orig = lines.Skip(firstline).Take(rowmap[(int)TestType.Fract_Band]).Select(s => new Reading(s)).ToList();
                 var data = orig.Where(d => d.rate >= 0.95 && d.rate <= 1.05);
 
-                var max = data.Max(s => s.shear);
-                var avg = data.SkipWhile(s => s.shear < max).Take(101).Average(s => s.shear);
+                var max = orig.Take(319).Max(s => s.shear);
+                var sam = orig.Take(319).TakeWhile(s => s.shear < max);
+                var start = sam.Any()?sam.Count(): 319;
+                var avg = orig.Skip(start).Take(101).Average(s => s.shear);
 
                 var category = avg < max;
-
-                var db = "\n"+_can+": >>>>  max: " + max + ", avg: "+avg+", category: "+category+"\n";
-                if ("OSCPM".Contains(_can))
-                    cat.Add(db);
-
-                Console.WriteLine(db);
 
                 var at5 = data.First(t => t.time >= 5.0).shear;
                 var span = data.Max(t => t.time);
