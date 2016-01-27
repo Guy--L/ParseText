@@ -278,15 +278,7 @@ namespace ParseText
             {
                 var data = lines.Skip(firstline).Take(rowmap[(int)TestType.Lather]).Select(s => new Reading(s)).Where(d => d.rate > 99.0 && d.rate < 101.0).ToList();
 
-                Console.Write("First: ");
-                data.First().print();
-
-                Console.Write("Last: ");
-                data.Last().print();
-
                 var max = data.Max(d => d.normal);
-                Console.Write("Max: "+ max);
-
                 var ninf = data.Where(d => d.time > 20).Average(d => d.normal);
                 var n2fit = data.Where(d => d.normal <= ((max + ninf) / 2.0));
                 //var fit = data.Where(d => d.normal <= ((max + ninf) / 2.0) && d.time <= 10);
