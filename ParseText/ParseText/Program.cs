@@ -276,15 +276,23 @@ namespace ParseText
             }
             if (testType == TestType.Lather)
             {
-                
                 var data = lines.Skip(firstline).Take(rowmap[(int)TestType.Lather]).Select(s => new Reading(s)).Where(d => d.rate > 99.0 && d.rate < 101.0).ToList();
+
+                Console.Write("First: ");
+                data.First().print();
+
+                Console.Write("Last: ");
+                data.Last().print();
+
                 var max = data.Max(d => d.normal);
+                Console.Write("Max: "+ max);
+
                 var ninf = data.Where(d => d.time > 20).Average(d => d.normal);
                 var n2fit = data.Where(d => d.normal <= ((max + ninf) / 2.0));
-                var fit = data.Where(d => d.normal <= ((max + ninf) / 2.0) && d.time <= 10);
+                //var fit = data.Where(d => d.normal <= ((max + ninf) / 2.0) && d.time <= 10);
 
-                var y2fit = fit.Select(d => Math.Log(Math.Abs(d.normal - ninf))).ToArray();   
-                var x2fit = fit.Select(d => d.time).ToArray();
+                var y2fit = n2fit.Select(d => Math.Log(Math.Abs(d.normal - ninf))).ToArray();   
+                var x2fit = n2fit.Select(d => d.time).ToArray();
                 Tuple<double, double> p = mn.Fit.Line(x2fit, y2fit);
 
                 var n0 = Math.Exp(p.Item1) + ninf;
