@@ -264,12 +264,12 @@ namespace ParseText
         private static int finaltake = 3;
         private static double t95 = -Math.Log(.05);
 
-        private static List<string> Issue3 = new List<string> {
-            "L-0059f",
-            "C-0014f",
-            "G-0034f",
-            "I-0044f"
-        };
+        //private static List<string> Issue3 = new List<string> {
+        //    "L-0059f",
+        //    "C-0014f",
+        //    "G-0034f",
+        //    "I-0044f"
+        //};
 
         static void ReadFile(string file, IXLRow outrow)
         {
@@ -277,16 +277,16 @@ namespace ParseText
             var datalines = lines.Count() - firstline - 1;
             TestType testType = (TestType) rowmap.IndexOf(datalines);
 
-            if (testType != TestType.Fract_Band)
-                return;
+            //if (testType != TestType.Fract_Band)
+            //    return;
 
             var f = Path.GetFileNameWithoutExtension(file);
 
-            if (!Issue3.Where(q => f.Contains(q)).Any())
-                return;
+            //if (!Issue3.Where(q => f.Contains(q)).Any())
+            //    return;
 
-            //Console.WriteLine(testType.ToString() + "\t" + Path.GetFileNameWithoutExtension(file));
-            Console.WriteLine(testType.ToString() + "\t" + can(file));
+            Console.WriteLine(testType.ToString() + "\t" + Path.GetFileNameWithoutExtension(file));
+            //Console.WriteLine(testType.ToString() + "\t" + can(file));
 
             if (testType == TestType.Cohesion)
             {
