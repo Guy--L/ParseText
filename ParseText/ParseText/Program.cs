@@ -79,6 +79,13 @@ namespace ParseText
             prime = double.Parse(a[2]);
             dprime = double.Parse(a[3]);
         }
+        public Reading(Reading toZero)
+        {
+            rate = 0.0;
+            shear = 0.0;
+            time = toZero.time;
+            normal = toZero.normal;
+        }
         public void print()
         {
             Console.WriteLine("(" + stress + ", " + strain + ", " + prime + ", " + dprime + ")");
@@ -257,19 +264,37 @@ namespace ParseText
         private static int finaltake = 3;
         private static double t95 = -Math.Log(.05);
 
+        private static List<string> Issue3 = new List<string> {
+            "L-0059f",
+            "C-0014f",
+            "G-0034f",
+            "I-0044f"
+        };
+
         static void ReadFile(string file, IXLRow outrow)
         {
             var lines = File.ReadAllLines(file);
             var datalines = lines.Count() - firstline - 1;
             TestType testType = (TestType) rowmap.IndexOf(datalines);
-            Console.WriteLine(testType.ToString() + "\t" + Path.GetFileNameWithoutExtension(file));
+
+            if (testType != TestType.Fract_Band)
+                return;
+
+            var f = Path.GetFileNameWithoutExtension(file);
+
+            if (!Issue3.Where(q => f.Contains(q)).Any())
+                return;
+
+            //Console.WriteLine(testType.ToString() + "\t" + Path.GetFileNameWithoutExtension(file));
+            Console.WriteLine(testType.ToString() + "\t" + can(file));
 
             if (testType == TestType.Cohesion)
             {
-                var pairs = lines.Skip(firstline).Take(rowmap[(int)TestType.Cohesion]).Select(s => {
-                      var a = s.Split('\t');
-                      return new { time = double.Parse(a[0]), normal = double.Parse(a[2]) };
-                  }).ToList();
+                var pairs = lines.Skip(firstline).Take(rowmap[(int)TestType.Cohesion]).Select(s =>
+                {
+                    var a = s.Split('\t');
+                    return new { time = double.Parse(a[0]), normal = double.Parse(a[2]) };
+                }).ToList();
                 var min = pairs.First(b => b.normal == pairs.Min(a => a.normal));
                 outrow.Cell(12).SetValue<double>(min.normal);
                 outrow.Cell(13).SetValue<double>(min.time);
@@ -283,7 +308,7 @@ namespace ParseText
                 var n2fit = data.Where(d => d.normal <= ((max + ninf) / 2.0));
                 //var fit = data.Where(d => d.normal <= ((max + ninf) / 2.0) && d.time <= 10);
 
-                var y2fit = n2fit.Select(d => Math.Log(Math.Abs(d.normal - ninf))).ToArray();   
+                var y2fit = n2fit.Select(d => Math.Log(Math.Abs(d.normal - ninf))).ToArray();
                 var x2fit = n2fit.Select(d => d.time).ToArray();
                 Tuple<double, double> p = mn.Fit.Line(x2fit, y2fit);
 
@@ -418,14 +443,18 @@ namespace ParseText
             if (testType == TestType.Fract_Band)
             {
                 var orig = lines.Skip(firstline).Take(rowmap[(int)TestType.Fract_Band]).Select(s => new Reading(s)).ToList();
-                var data = orig.Where(d => d.rate >= 0.95 && d.rate <= 1.05);
+                var data = orig.Select(d => (d.rate >= 0.95 && d.rate <= 1.05)? d : new Reading(d));
 
-                var max = orig.Take(319).Max(s => s.shear);
-                var sam = orig.Take(319).TakeWhile(s => s.shear < max);
+                var max = data.Take(319).Max(s => s.shear);
+                var sam = data.Take(319).TakeWhile(s => s.shear < max);
+
+                //Console.WriteLine("sam count: " + sam.Count());
+
                 var start = sam.Any()?sam.Count(): 319;
-                var avg = orig.Skip(start).Take(101).Average(s => s.shear);
-
+                var avg = data.Skip(start).Take(101).Average(s => s.shear);
                 var category = avg < max;
+                //Console.WriteLine("avg max cat");
+                //Console.WriteLine(avg + " " + max + " " + category);
 
                 var at5 = data.First(t => t.time >= 5.0).shear;
                 var span = data.Max(t => t.time);
@@ -439,7 +468,7 @@ namespace ParseText
                 if (category) outrow.Cell(27).SetValue<double>(orig.Max(s => s.shear));
 
                 //Console.WriteLine("cat at5 at60 delta peak");
-                //Console.WriteLine(category + " " + at5 + " " + at60 + " " + delta + " " + peak);
+                //Console.WriteLine(category + " " + at5 + " " + at60 + " " + delta + " " + span);
             }
         }
     }
