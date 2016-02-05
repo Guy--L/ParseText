@@ -265,10 +265,8 @@ namespace ParseText
         private static double t95 = -Math.Log(.05);
 
         //private static List<string> Issue3 = new List<string> {
-        //    "L-0059f",
-        //    "C-0014f",
-        //    "G-0034f",
-        //    "I-0044f"
+        //    "G-0033f",
+        //    "L-0058f"
         //};
 
         static void ReadFile(string file, IXLRow outrow)
@@ -285,8 +283,8 @@ namespace ParseText
             //if (!Issue3.Where(q => f.Contains(q)).Any())
             //    return;
 
-            Console.WriteLine(testType.ToString() + "\t" + Path.GetFileNameWithoutExtension(file));
-            //Console.WriteLine(testType.ToString() + "\t" + can(file));
+            //Console.WriteLine(testType.ToString() + "\t" + Path.GetFileNameWithoutExtension(file));
+            Console.WriteLine(testType.ToString() + "\t" + can(file));
 
             if (testType == TestType.Cohesion)
             {
@@ -373,7 +371,6 @@ namespace ParseText
                 var mid = readings.TakeWhile(s => s.strain < intersectx);
                 var midtriple = readings.Skip(mid.Count() - 2).Take(3);
                 var mline = new Line(midtriple);
-
 
                 var ypstrain = (0 - mline.intercept) / (mline.slope - iline.slope);
                 var ypt = readings.TakeWhile(s => s.strain < ypstrain);

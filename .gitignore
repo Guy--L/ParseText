@@ -38,7 +38,6 @@ BuildDate.txt
 app_data/*
 TestData/*
 Rejected/*
-Issue3/*
-Issue4/*
+Issue*/*
 .DS_Store
 ._.DS_Store
