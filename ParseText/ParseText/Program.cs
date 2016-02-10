@@ -275,7 +275,7 @@ namespace ParseText
             var datalines = lines.Count() - firstline - 1;
             TestType testType = (TestType) rowmap.IndexOf(datalines);
 
-            //if (testType != TestType.Fract_Band)
+            //if (testType != TestType.Oscillation)
             //    return;
 
             var f = Path.GetFileNameWithoutExtension(file);
@@ -366,54 +366,30 @@ namespace ParseText
                 var fline = new Line(final);
 
                 var intersectx = (iline.intercept - fline.intercept) / (fline.slope - iline.slope);
-                Console.WriteLine("intersectx: " + intersectx);
+                //Console.WriteLine("intersectx: " + intersectx);
 
                 var mid = readings.TakeWhile(s => s.strain < intersectx);
                 var midtriple = readings.Skip(mid.Count() - 2).Take(3);
                 var mline = new Line(midtriple);
 
-                var ypstrain = (0 - mline.intercept) / (mline.slope - iline.slope);
+                var ypstrain = (iline.intercept - mline.intercept) / (mline.slope - iline.slope);
                 var ypt = readings.TakeWhile(s => s.strain < ypstrain);
                 var ypi = readings.Skip(ypt.Count() - 1).Take(2);
                 var yp = ypi.ToArray();
 
                 var ypstress = (yp[1].stress - yp[0].stress) / (yp[1].strain - yp[0].strain) * (ypstrain - yp[0].strain) + yp[0].stress;
 
-                //if (_can == "AC")
-                //{
-                //    Console.WriteLine(file);
-
-                //    Console.WriteLine("initial");
-                //    initial.ForEach(i => i.print());
-
-                //    Console.WriteLine("mid");
-                //    midtriple.ForEach(m => m.print());
-
-                //    Console.WriteLine("yppair");
-                //    yp.ForEach(y => y.print());
-
-                //    Console.WriteLine("initial slope: " + iline.slope + ", int: " + iline.intercept);
-                //    Console.WriteLine("mid slope: " + mline.slope + ", int: " + mline.intercept);
-
-                //    ypstrain = (0 - mline.intercept) / (mline.slope - iline.slope);
-                //    ypstress = (yp[1].stress - yp[0].stress) / (yp[1].strain - yp[0].strain) * (ypstrain - yp[0].strain) + yp[0].stress;
-
-                //    Console.WriteLine("ypstress: " + ypstress + ", ypstrain: " + ypstrain);
-
-                //    Console.ReadKey();
-                //}
-
-
                 var bpstrain = (fline.intercept - mline.intercept) / (mline.slope - fline.slope);
                 var bpt = readings.TakeWhile(s => s.strain < bpstrain);
                 var bp = readings.Skip(bpt.Count() - 1).Take(2).ToArray();
                 var bpstress = (bp[1].stress - bp[0].stress) / (bp[1].strain - bp[0].strain) * (bpstrain - bp[0].strain) + bp[0].stress;
 
-                var cross = readings.TakeWhile(s => s.prime >= s.dprime);
+                var cross = readings.Skip(1).TakeWhile(s => s.prime >= s.dprime);
                 // old formula
                 // var cr = readings.Skip(cross.Count() - 4).Take(2).ToArray();
 
-                var cr = readings.Skip(cross.Count() - 1).Take(2).ToArray();
+                var crx = readings.Skip(cross.Count()).Take(2);
+                var cr = crx.ToArray();
 
                 var pline = new Line(cr, c => c.prime);
                 var dline = new Line(cr, c => c.dprime);
@@ -423,6 +399,19 @@ namespace ParseText
 
                 var gstrain = (pline.intercept - dline.intercept) / denom;
                 var gstress = (cr[1].prime - cr[0].prime) / strd * (gstrain - cr[1].strain) + cr[1].prime;
+                //if (_can == "U")
+                //{
+                //    Console.WriteLine("pair:");
+                //    crx.First().print();
+                //    crx.Last().print();
+                //    Console.WriteLine("cross count: " + cross.Count());
+                //    Console.WriteLine("denom: " + denom + ", strd: " + strd);
+                //    Console.WriteLine("pline intercept: " + pline.intercept + ", slope: " + pline.slope);
+                //    Console.WriteLine("dline intercept: " + dline.intercept + ", slope: " + dline.slope);
+
+                //    Console.WriteLine("gstrain: " + gstrain);
+                //    Console.WriteLine("gstress: " + gstress);
+                //}
 
                 var gplateau = initial.Average(g => g.prime);
                 var dplateau = initial.Average(g => g.dprime);
