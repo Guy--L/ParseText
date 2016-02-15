@@ -278,8 +278,8 @@ namespace ParseText
             var datalines = lines.Count() - firstline - 1;
             TestType testType = (TestType) rowmap.IndexOf(datalines);
 
-            if (testType != TestType.Oscillation)
-                return;
+            //if (testType != TestType.Fract_Band)
+            //    return;
 
             var f = Path.GetFileNameWithoutExtension(file);
 
@@ -381,32 +381,32 @@ namespace ParseText
                 var yp = ypi.ToArray();
 
                 var ypstress = (yp[1].stress - yp[0].stress) / (yp[1].strain - yp[0].strain) * (ypstrain - yp[0].strain) + yp[0].stress;
-                if (_can == "AG" || _can == "Z")
-                {
-                    Console.WriteLine("midtriple:");
-                    var rdg = midtriple.First();
+                //if (_can == "AG" || _can == "Z")
+                //{
+                //    Console.WriteLine("midtriple:");
+                //    var rdg = midtriple.First();
 
-                    Console.Write(rdg.strain + " -- " + intersectx + " " + (rdg.strain < intersectx) + " < ");
-                    rdg.print();
+                //    Console.Write(rdg.strain + " -- " + intersectx + " " + (rdg.strain < intersectx) + " < ");
+                //    rdg.print();
 
-                    rdg = midtriple.ElementAt(1);
-                    Console.Write(rdg.strain + " -- " + intersectx + " " + (rdg.strain < intersectx) + " < ");
-                    rdg.print();
+                //    rdg = midtriple.ElementAt(1);
+                //    Console.Write(rdg.strain + " -- " + intersectx + " " + (rdg.strain < intersectx) + " < ");
+                //    rdg.print();
 
-                    rdg = midtriple.Last();
-                    Console.Write(rdg.strain + " -- " + intersectx + " " + (rdg.strain < intersectx) + " < ");
-                    rdg.print();
+                //    rdg = midtriple.Last();
+                //    Console.Write(rdg.strain + " -- " + intersectx + " " + (rdg.strain < intersectx) + " < ");
+                //    rdg.print();
 
-                    Console.WriteLine("mid count: " + mid.Count());
-                    Console.WriteLine("ypt count: " + ypt.Count());
-                    //Console.WriteLine("denom: " + denom + ", strd: " + strd);
-                    Console.WriteLine("iline intercept: " + iline.intercept + ", slope: " + iline.slope);
-                    Console.WriteLine("mline intercept: " + mline.intercept + ", slope: " + mline.slope);
+                //    Console.WriteLine("mid count: " + mid.Count());
+                //    Console.WriteLine("ypt count: " + ypt.Count());
+                //    //Console.WriteLine("denom: " + denom + ", strd: " + strd);
+                //    Console.WriteLine("iline intercept: " + iline.intercept + ", slope: " + iline.slope);
+                //    Console.WriteLine("mline intercept: " + mline.intercept + ", slope: " + mline.slope);
 
-                    //Console.WriteLine("gstrain: " + gstrain);
-                    //Console.WriteLine("gstress: " + gstress);
-                }
-                    Console.WriteLine(ypstress+" "+ypstrain);
+                //    //Console.WriteLine("gstrain: " + gstrain);
+                //    //Console.WriteLine("gstress: " + gstress);
+                //}
+                //    Console.WriteLine(ypstress+" "+ypstrain);
 
                 var bpstrain = (fline.intercept - mline.intercept) / (mline.slope - fline.slope);
                 var bpt = readings.TakeWhile(s => s.strain < bpstrain);
@@ -458,7 +458,8 @@ namespace ParseText
                 //Console.WriteLine("avg max cat");
                 //Console.WriteLine(avg + " " + max + " " + category);
 
-                var at5 = data.First(t => t.time >= 5.0).shear;
+                var at5 = data.Last(t => t.time <= 5.0).shear;
+                 
                 var span = data.Max(t => t.time);
                 var at60 = span >= 60.0 ? data.First(t => t.time >= 60.0).shear : data.Last().shear;
                 var delta = at60 - at5;
