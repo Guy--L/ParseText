@@ -31,6 +31,8 @@ namespace ParseText
 
         public double Fit(Func<Reading, double> column)
         {
+            //y = _data.Select(s => Math.Round(column(s), 3)).ToArray();
+            //x = _data.Select(s => Math.Round(s.strain, 3)).ToArray();
             y = _data.Select(s => column(s)).ToArray();
             x = _data.Select(s => s.strain).ToArray();
             Tuple<double, double> z = mn.Fit.Line(x, y);
@@ -48,6 +50,7 @@ namespace ParseText
         public double prime;
         public double dprime;
 
+        // overload reading members to provide two facades
         public double time
         {
             get { return stress; }
@@ -275,8 +278,8 @@ namespace ParseText
             var datalines = lines.Count() - firstline - 1;
             TestType testType = (TestType) rowmap.IndexOf(datalines);
 
-            //if (testType != TestType.Oscillation)
-            //    return;
+            if (testType != TestType.Oscillation)
+                return;
 
             var f = Path.GetFileNameWithoutExtension(file);
 
@@ -378,6 +381,32 @@ namespace ParseText
                 var yp = ypi.ToArray();
 
                 var ypstress = (yp[1].stress - yp[0].stress) / (yp[1].strain - yp[0].strain) * (ypstrain - yp[0].strain) + yp[0].stress;
+                if (_can == "AG" || _can == "Z")
+                {
+                    Console.WriteLine("midtriple:");
+                    var rdg = midtriple.First();
+
+                    Console.Write(rdg.strain + " -- " + intersectx + " " + (rdg.strain < intersectx) + " < ");
+                    rdg.print();
+
+                    rdg = midtriple.ElementAt(1);
+                    Console.Write(rdg.strain + " -- " + intersectx + " " + (rdg.strain < intersectx) + " < ");
+                    rdg.print();
+
+                    rdg = midtriple.Last();
+                    Console.Write(rdg.strain + " -- " + intersectx + " " + (rdg.strain < intersectx) + " < ");
+                    rdg.print();
+
+                    Console.WriteLine("mid count: " + mid.Count());
+                    Console.WriteLine("ypt count: " + ypt.Count());
+                    //Console.WriteLine("denom: " + denom + ", strd: " + strd);
+                    Console.WriteLine("iline intercept: " + iline.intercept + ", slope: " + iline.slope);
+                    Console.WriteLine("mline intercept: " + mline.intercept + ", slope: " + mline.slope);
+
+                    //Console.WriteLine("gstrain: " + gstrain);
+                    //Console.WriteLine("gstress: " + gstress);
+                }
+                    Console.WriteLine(ypstress+" "+ypstrain);
 
                 var bpstrain = (fline.intercept - mline.intercept) / (mline.slope - fline.slope);
                 var bpt = readings.TakeWhile(s => s.strain < bpstrain);
@@ -399,19 +428,6 @@ namespace ParseText
 
                 var gstrain = (pline.intercept - dline.intercept) / denom;
                 var gstress = (cr[1].prime - cr[0].prime) / strd * (gstrain - cr[1].strain) + cr[1].prime;
-                //if (_can == "U")
-                //{
-                //    Console.WriteLine("pair:");
-                //    crx.First().print();
-                //    crx.Last().print();
-                //    Console.WriteLine("cross count: " + cross.Count());
-                //    Console.WriteLine("denom: " + denom + ", strd: " + strd);
-                //    Console.WriteLine("pline intercept: " + pline.intercept + ", slope: " + pline.slope);
-                //    Console.WriteLine("dline intercept: " + dline.intercept + ", slope: " + dline.slope);
-
-                //    Console.WriteLine("gstrain: " + gstrain);
-                //    Console.WriteLine("gstress: " + gstress);
-                //}
 
                 var gplateau = initial.Average(g => g.prime);
                 var dplateau = initial.Average(g => g.dprime);
