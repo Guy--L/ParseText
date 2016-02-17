@@ -343,9 +343,10 @@ namespace ParseText
 
                 model.AddGoal("Chi2", GoalKind.Minimize, cost.ToTerm());            // add goal
 
-                var directive = new CompactQuasiNewtonDirective();
-                var solver = context.Solve(directive);
-                var report = solver.GetReport() as CompactQuasiNewtonReport;
+                //var directive = new CompactQuasiNewtonDirective();
+                //var solver = context.Solve(directive);
+                var solver = context.Solve();
+                var report = solver.GetReport();
                 Console.Write(report);
 
                 var chi2 = model.Goals.First().ToDouble();
