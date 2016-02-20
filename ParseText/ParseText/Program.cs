@@ -2,10 +2,12 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Drawing;
 using ClosedXML.Excel;
 using System.Configuration;
 using mn = MathNet.Numerics;
-using Microsoft.SolverFoundation.Services;
+//using Microsoft.SolverFoundation.Services;
+using System.Windows.Forms.DataVisualization.Charting;
 
 namespace ParseText
 {
@@ -82,6 +84,11 @@ namespace ParseText
             prime = double.Parse(a[2]);
             dprime = double.Parse(a[3]);
         }
+        public Reading(double t, double n)
+        {
+            time = t;
+            normal = n;
+        }
         public Reading(Reading toZero)
         {
             rate = 0.0;
@@ -120,9 +127,9 @@ namespace ParseText
         private static string _outfilename = @"{0} Rheology Analysis v3 with SPTT Entry Macro (MACRO v4.1) {1}";
         private static string _currentsample;
 
-        private static SolverContext context;
-        private static Model model = null;
-        private static Decision N0, TC;
+        //private static SolverContext context;
+        //private static Model model = null;
+        //private static Decision N0, TC;
 
         static void Main(string[] args)
         {
@@ -267,6 +274,55 @@ namespace ParseText
         private static int finaltake = 3;
         private static double t95 = -Math.Log(.05);
 
+        static void ChartFile(string name, List<Reading> data, List<Reading> fit)
+        {
+            var c = new Chart() { Size = new Size(1920, 1080) };
+            c.Titles.Add("Normal vs Time for "+name);
+            c.Titles[0].Font = new Font("Arial", 14, FontStyle.Bold);
+            var a = new ChartArea("Lather");
+            a.AxisY.MajorGrid.LineColor = Color.LightGray;
+            a.AxisY.LabelStyle.Font = new Font("Arial", 14);
+            a.AxisY.Title = "Normal";
+            a.AxisY.TitleFont = new Font("Arial", 14);
+            a.AxisX.Title = "Time";
+            a.AxisX.TitleFont = new Font("Arial", 14);
+            a.AxisX.IsStartedFromZero = true;
+            a.AxisY.IsStartedFromZero = true;
+            a.AxisX.IsMarginVisible = false;
+            a.AxisX.MajorGrid.LineColor = Color.LightGray;
+            a.AxisX.LabelStyle.ForeColor = Color.Black;
+            a.AxisX.LabelStyle.Font = new Font("Arial", 14);
+            a.AxisX.IsLabelAutoFit = true;
+            c.ChartAreas.Add(a);
+            var t = new Series("Readings")
+            {
+                ChartType = SeriesChartType.FastLine,
+                XValueType = ChartValueType.Double,
+                YValueType = ChartValueType.Double,
+                Color = Color.FromName("Blue")
+            };
+            var time = data.Select(x => x.time).ToList();
+            var normal = data.Select(y => y.normal).ToList();
+            t.Points.DataBindXY(time, normal);
+            c.Series.Add(t);
+            t.ChartArea = "Lather";
+
+            var f = new Series("Fit")
+            {
+                ChartType = SeriesChartType.FastLine,
+                XValueType = ChartValueType.Double,
+                YValueType = ChartValueType.Double,
+                Color = Color.FromName("Red")
+            };
+            time = fit.Select(x => x.time).ToList();
+            normal = fit.Select(y => y.normal).ToList();
+            f.Points.DataBindXY(time, normal);
+            c.Series.Add(f);
+            f.ChartArea = "Lather";
+
+            c.SaveImage(name + ".png", ChartImageFormat.Png);
+        }
+
         //private static List<string> Issue3 = new List<string> {
         //    "G-0033f",
         //    "L-0058f"
@@ -278,7 +334,7 @@ namespace ParseText
             var datalines = lines.Count() - firstline - 1;
             TestType testType = (TestType) rowmap.IndexOf(datalines);
 
-            //if (testType != TestType.Fract_Band)
+            //if (testType != TestType.Lather)
             //    return;
 
             var f = Path.GetFileNameWithoutExtension(file);
@@ -306,59 +362,73 @@ namespace ParseText
 
                 var max = data.Max(d => d.normal);
                 var ninf = data.Where(d => d.time > 20).Average(d => d.normal);
-                var n2fit = data.Where(d => d.normal <= ((max + ninf) / 2.0));
+                var n2fit = data.Where(d => d.normal <= ((max + ninf) / 2.0) && d.time < 10);
                 //var fit = data.Where(d => d.normal <= ((max + ninf) / 2.0) && d.time <= 10);
 
                 var y2fit = n2fit.Select(d => Math.Log(Math.Abs(d.normal - ninf))).ToArray();
                 var x2fit = n2fit.Select(d => d.time).ToArray();
-                Tuple<double, double> p = mn.Fit.Line(x2fit, y2fit);
+                Tuple<double, double> p = mn.Fit.Line(x2fit, y2fit);   // item1 intercept, item2 slope
 
                 var n0 = Math.Exp(p.Item1) + ninf;
+
+                var f2fit = data.Select(d => new Reading(d.time, (n0 + (ninf - n0) * (1 - Math.Exp(d.time * p.Item2))))).ToList();
                 //var g = mn.GoodnessOfFit.RSquared(x2fit.Select(x => p.Item1 + p.Item2 * x), y2fit); // == 1.0
 
+                //ChartFile(can(file), data, f2fit);
+
                 // Create the model
-                if (model == null)
-                {
-                    context = SolverContext.GetContext();
-                    model = context.CreateModel();
-                    // Add a decisions
-                    N0 = new Decision(Domain.Real, "n0");
-                    TC = new Decision(Domain.Real, "tc");
-                    model.AddDecisions(N0);
-                    model.AddDecisions(TC);
-                }
+                //if (model == null)
+                //{
+                //    context = SolverContext.GetContext();
+                //    model = context.CreateModel();
+                //    // Add a decisions
+                //    N0 = new Decision(Domain.Real, "n0");
+                //    TC = new Decision(Domain.Real, "tc");
+                //    model.AddDecisions(N0);
+                //    model.AddDecisions(TC);
+                //}
 
-                N0.SetInitialValue(n0);
-                TC.SetInitialValue(-1 / p.Item2);
+                //Console.WriteLine("Log-linear regression estimates for "+ can(file));
+                //Console.WriteLine("#: "+n2fit.Count()+"iN0: " + n0 + ", ninf: "+ninf+", p.Item1: "+p.Item1+", p.Item2: "+p.Item2);
+                //Console.WriteLine("iTC: " + (-1 / p.Item2));
+                //N0.SetInitialValue(n0);
+                //TC.SetInitialValue(-1 / p.Item2);
 
-                var cost = new SumTermBuilder(n2fit.Count());
+                var tc = -1 / p.Item2;
 
-                n2fit.ForEach(d =>
-                {
-                    Term r = N0 + (ninf - N0) * (1 - Model.Exp(-d.time / TC));
-                    r -= d.normal;
-                    r *= r;
-                    cost.Add(r);
-                });
+                //var cost = new SumTermBuilder(n2fit.Count());
 
-                model.AddGoal("Chi2", GoalKind.Minimize, cost.ToTerm());            // add goal
+                //n2fit.ForEach(d =>
+                //{
+                //    Term r = N0 + (ninf - N0) * (1 - Model.Exp(-d.time / TC));
+                //    r -= d.normal;
+                //    r *= r;
+                //    cost.Add(r);
+                //});
 
-                //var directive = new CompactQuasiNewtonDirective();
-                //var solver = context.Solve(directive);
-                var solver = context.Solve();
-                var report = solver.GetReport();
-                Console.Write(report);
+                //model.AddGoal("Chi2", GoalKind.Minimize, cost.ToTerm());            // add goal
 
-                var chi2 = model.Goals.First().ToDouble();
+                ////var directive = new CompactQuasiNewtonDirective();
+                ////var solver = context.Solve(directive);
+                //var solver = context.Solve();
+                //var report = solver.GetReport();
+                //Console.Write(report);
 
-                outrow.Cell(6).SetValue<double>(chi2);
-                outrow.Cell(7).SetValue<double>(N0.GetDouble());
-                outrow.Cell(8).SetValue<double>(TC.GetDouble());
+                //var chi2 = model.Goals.First().ToDouble();
+
+                //outrow.Cell(6).SetValue<double>(chi2);
+                //outrow.Cell(7).SetValue<double>(N0.GetDouble());
+                //outrow.Cell(8).SetValue<double>(TC.GetDouble());
+                //outrow.Cell(9).SetValue<double>(ninf);
+                //outrow.Cell(10).SetValue<double>(TC.GetDouble() * t95);
+
+                outrow.Cell(7).SetValue<double>(n0);
+                outrow.Cell(8).SetValue<double>(tc);
                 outrow.Cell(9).SetValue<double>(ninf);
-                outrow.Cell(10).SetValue<double>(TC.GetDouble() * t95);
+                outrow.Cell(10).SetValue<double>(tc * t95);
 
-                Console.WriteLine("--> Chi2: " + chi2 + ", N0: " + N0.GetDouble() + ", TC: " + TC.GetDouble());
-                model.RemoveGoal(model.Goals.First());                              // remove goal for next model run                
+                //Console.WriteLine("--> Chi2: " + chi2 + ", N0: " + N0.GetDouble() + ", TC: " + TC.GetDouble());
+                //model.RemoveGoal(model.Goals.First());                              // remove goal for next model run                
             }
             if (testType == TestType.Oscillation)
             {
