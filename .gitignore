@@ -37,7 +37,9 @@ mes/Resources/BuildDate.txt
 BuildDate.txt
 app_data/*
 TestData/*
+t95/*
 Rejected/*
 Issue*/*
 .DS_Store
 ._.DS_Store
+*/*.png

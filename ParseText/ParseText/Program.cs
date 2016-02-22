@@ -334,8 +334,8 @@ namespace ParseText
             var datalines = lines.Count() - firstline - 1;
             TestType testType = (TestType) rowmap.IndexOf(datalines);
 
-            //if (testType != TestType.Lather)
-            //    return;
+            if (testType != TestType.Lather)
+                return;
 
             var f = Path.GetFileNameWithoutExtension(file);
 
@@ -365,16 +365,17 @@ namespace ParseText
                 var n2fit = data.Where(d => d.normal <= ((max + ninf) / 2.0) && d.time < 10);
                 //var fit = data.Where(d => d.normal <= ((max + ninf) / 2.0) && d.time <= 10);
 
+                //var y2f = data.Select(d => new Reading(d.time,  Math.Log(Math.Abs(d.normal - ninf))));
                 var y2fit = n2fit.Select(d => Math.Log(Math.Abs(d.normal - ninf))).ToArray();
                 var x2fit = n2fit.Select(d => d.time).ToArray();
                 Tuple<double, double> p = mn.Fit.Line(x2fit, y2fit);   // item1 intercept, item2 slope
 
                 var n0 = Math.Exp(p.Item1) + ninf;
 
-                var f2fit = data.Select(d => new Reading(d.time, (n0 + (ninf - n0) * (1 - Math.Exp(d.time * p.Item2))))).ToList();
+                var n2 = n2fit.Sum(d => Math.Pow(d.normal - (n0 + (ninf - n0) * (1 - Math.Exp(d.time * p.Item2))), 2));
                 //var g = mn.GoodnessOfFit.RSquared(x2fit.Select(x => p.Item1 + p.Item2 * x), y2fit); // == 1.0
 
-                //ChartFile(can(file), data, f2fit);
+                // ChartFile(can(file), data, f2fit.ToList());
 
                 // Create the model
                 //if (model == null)
@@ -416,12 +417,12 @@ namespace ParseText
 
                 //var chi2 = model.Goals.First().ToDouble();
 
-                //outrow.Cell(6).SetValue<double>(chi2);
                 //outrow.Cell(7).SetValue<double>(N0.GetDouble());
                 //outrow.Cell(8).SetValue<double>(TC.GetDouble());
                 //outrow.Cell(9).SetValue<double>(ninf);
                 //outrow.Cell(10).SetValue<double>(TC.GetDouble() * t95);
 
+                outrow.Cell(6).SetValue<double>(n2);
                 outrow.Cell(7).SetValue<double>(n0);
                 outrow.Cell(8).SetValue<double>(tc);
                 outrow.Cell(9).SetValue<double>(ninf);
