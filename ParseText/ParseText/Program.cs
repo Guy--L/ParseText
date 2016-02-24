@@ -127,6 +127,8 @@ namespace ParseText
         private static string _outfilename = @"{0} Rheology Analysis v3 with SPTT Entry Macro (MACRO v4.1) {1}";
         private static string _currentsample;
 
+        private static Dictionary<string, double[]> _t95 = new Dictionary<string, double[]>();
+
         //private static SolverContext context;
         //private static Model model = null;
         //private static Decision N0, TC;
@@ -164,7 +166,15 @@ namespace ParseText
 
             Console.WriteLine("Test\tFilename");
             foreach (var d in docs)
-                ReadControlXL(d);
+            {
+                if (d.Contains("Manual"))
+                {
+                    ReadManualXL(d);
+                    Console.WriteLine("manual results read");
+                }
+                else
+                    ReadControlXL(d);
+            }
         }
 
         /// <summary>
@@ -203,6 +213,28 @@ namespace ParseText
 
         private static IXLWorksheet _outsh;
         private static string _can;
+
+        static void ReadManualXL(string xlfile)
+        {
+            var maxl = new XLWorkbook(xlfile);
+            var inxl = new XLWorkbook(xlfile);
+            IXLWorksheet insh;
+            if (!inxl.TryGetWorksheet("Summary Table", out insh))
+                return;
+
+            foreach (var row in insh.Rows())
+            {
+                if (row.RowNumber() < 4)
+                    continue;
+
+                var can = row.Cell(1).GetValue<string>();
+
+                if (string.IsNullOrWhiteSpace(can))
+                    continue;
+
+                _t95[can] = new double[] { row.Cell(7).GetValue<double>(), row.Cell(8).GetValue<double>(), row.Cell(9).GetValue<double>() };
+            }
+        }
 
         static void ReadControlXL(string xlfile)
         {
@@ -274,7 +306,7 @@ namespace ParseText
         private static int finaltake = 3;
         private static double t95 = -Math.Log(.05);
 
-        static void ChartFile(string name, List<Reading> data, List<Reading> fit)
+        static void ChartFile(string name, List<Reading> data, List<Reading> fit, List<Reading> man)
         {
             var c = new Chart() { Size = new Size(1920, 1080) };
             c.Titles.Add("Normal vs Time for "+name);
@@ -320,6 +352,20 @@ namespace ParseText
             c.Series.Add(f);
             f.ChartArea = "Lather";
 
+            var h = new Series("Manual")
+            {
+                ChartType = SeriesChartType.FastLine,
+                XValueType = ChartValueType.Double,
+                YValueType = ChartValueType.Double,
+                Color = Color.FromName("Green")
+            };
+            time = man.Select(x => x.time).ToList();
+            normal = man.Select(y => y.normal).ToList();
+            h.Points.DataBindXY(time, normal);
+            c.Series.Add(h);
+            h.ChartArea = "Lather";
+
+            Console.WriteLine("saving chart " + name);
             c.SaveImage(name + ".png", ChartImageFormat.Png);
         }
 
@@ -334,8 +380,8 @@ namespace ParseText
             var datalines = lines.Count() - firstline - 1;
             TestType testType = (TestType) rowmap.IndexOf(datalines);
 
-            if (testType != TestType.Lather)
-                return;
+            //if (testType != TestType.Lather)
+            //    return;
 
             var f = Path.GetFileNameWithoutExtension(file);
 
@@ -372,10 +418,13 @@ namespace ParseText
 
                 var n0 = Math.Exp(p.Item1) + ninf;
 
+                var fit = data.Select(d => new Reading(d.time, n0 + (ninf - n0) * (1 - Math.Exp(d.time * p.Item2))));
+                //var NP = _t95[can(file)];
+                //var man = data.Select(d => new Reading(d.time, NP[0] + (NP[1] - NP[0]) * (1 - Math.Exp(- d.time / NP[2]))));
                 var n2 = n2fit.Sum(d => Math.Pow(d.normal - (n0 + (ninf - n0) * (1 - Math.Exp(d.time * p.Item2))), 2));
                 //var g = mn.GoodnessOfFit.RSquared(x2fit.Select(x => p.Item1 + p.Item2 * x), y2fit); // == 1.0
 
-                // ChartFile(can(file), data, f2fit.ToList());
+                //ChartFile(can(file), data, fit.ToList(), man.ToList());
 
                 // Create the model
                 //if (model == null)
@@ -424,8 +473,8 @@ namespace ParseText
 
                 outrow.Cell(6).SetValue<double>(n2);
                 outrow.Cell(7).SetValue<double>(n0);
-                outrow.Cell(8).SetValue<double>(tc);
-                outrow.Cell(9).SetValue<double>(ninf);
+                outrow.Cell(8).SetValue<double>(ninf);
+                outrow.Cell(9).SetValue<double>(tc);
                 outrow.Cell(10).SetValue<double>(tc * t95);
 
                 //Console.WriteLine("--> Chi2: " + chi2 + ", N0: " + N0.GetDouble() + ", TC: " + TC.GetDouble());
