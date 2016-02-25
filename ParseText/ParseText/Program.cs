@@ -121,6 +121,8 @@ namespace ParseText
         /// Number of rows in text files that correspond to the test types above
         /// </summary>
         private static List<int> rowmap = new List<int>() { 1, 144, 200, 418, 38, 0 };
+        private static Dictionary<int, TestType> testmap = rowmap.Select((v, i) => new { value = v, index = i }).ToDictionary(v => v.value, k => (TestType)k.index);
+
         const int firstline = 9;
         private static string _data;
         private static string _infileprefix = @"Rheology Form Filled In ";
@@ -144,6 +146,8 @@ namespace ParseText
             }
 
             // look for request XLs in all directories on command line
+            testmap.Add(143, TestType.Lather);
+            testmap.Add(142, TestType.Lather);
 
             foreach (var s in args)
             {
@@ -167,13 +171,7 @@ namespace ParseText
             Console.WriteLine("Test\tFilename");
             foreach (var d in docs)
             {
-                if (d.Contains("Manual"))
-                {
-                    ReadManualXL(d);
-                    Console.WriteLine("manual results read");
-                }
-                else
-                    ReadControlXL(d);
+                ReadControlXL(d);
             }
         }
 
@@ -378,7 +376,7 @@ namespace ParseText
         {
             var lines = File.ReadAllLines(file);
             var datalines = lines.Count() - firstline - 1;
-            TestType testType = (TestType) rowmap.IndexOf(datalines);
+            TestType testType = testmap[datalines];
 
             //if (testType != TestType.Lather)
             //    return;
