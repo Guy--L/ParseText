@@ -6,6 +6,7 @@ using System.Drawing;
 using ClosedXML.Excel;
 using System.Configuration;
 using mn = MathNet.Numerics;
+using md = MathNet.Numerics.Statistics;
 //using Microsoft.SolverFoundation.Services;
 using System.Windows.Forms.DataVisualization.Charting;
 
@@ -89,12 +90,24 @@ namespace ParseText
             time = t;
             normal = n;
         }
+        public Reading(double t, double n, double b)
+        {
+            time = t;
+            normal = Math.Abs(n) > b ? 0 : n;
+        }
         public Reading(Reading toZero)
         {
             rate = 0.0;
             shear = 0.0;
             time = toZero.time;
             normal = toZero.normal;
+        }
+        public Reading(Reading a, Reading b)
+        {
+            time = a.time;
+            rate = b.time;
+
+            normal = (b.normal - a.normal) / (b.time - a.time);
         }
         public void print()
         {
@@ -304,11 +317,17 @@ namespace ParseText
         private static int finaltake = 3;
         private static double t95 = -Math.Log(.05);
 
-        static void ChartFile(string name, List<Reading> data, List<Reading> fit, List<Reading> man)
+        private static List<string> colors = new List<string>()
+        {
+            "Blue", "Red", "Green", "Black", "Orange", "Pink", "Purple", "Brown", "Yellow"
+        };
+
+        static void ChartSeries(string name, Dictionary<string, List<Reading>> series)
         {
             var c = new Chart() { Size = new Size(1920, 1080) };
-            c.Titles.Add("Normal vs Time for "+name);
+            c.Titles.Add("Normal vs Time for " + name);
             c.Titles[0].Font = new Font("Arial", 14, FontStyle.Bold);
+
             var a = new ChartArea("Lather");
             a.AxisY.MajorGrid.LineColor = Color.LightGray;
             a.AxisY.LabelStyle.Font = new Font("Arial", 14);
@@ -324,44 +343,27 @@ namespace ParseText
             a.AxisX.LabelStyle.Font = new Font("Arial", 14);
             a.AxisX.IsLabelAutoFit = true;
             c.ChartAreas.Add(a);
-            var t = new Series("Readings")
-            {
-                ChartType = SeriesChartType.FastLine,
-                XValueType = ChartValueType.Double,
-                YValueType = ChartValueType.Double,
-                Color = Color.FromName("Blue")
-            };
-            var time = data.Select(x => x.time).ToList();
-            var normal = data.Select(y => y.normal).ToList();
-            t.Points.DataBindXY(time, normal);
-            c.Series.Add(t);
-            t.ChartArea = "Lather";
 
-            var f = new Series("Fit")
-            {
-                ChartType = SeriesChartType.FastLine,
-                XValueType = ChartValueType.Double,
-                YValueType = ChartValueType.Double,
-                Color = Color.FromName("Red")
-            };
-            time = fit.Select(x => x.time).ToList();
-            normal = fit.Select(y => y.normal).ToList();
-            f.Points.DataBindXY(time, normal);
-            c.Series.Add(f);
-            f.ChartArea = "Lather";
+            c.Legends.Add(new Legend("Legend") {
+                IsDockedInsideChartArea = true,
+                DockedToChartArea = "Lather"
+            });
 
-            var h = new Series("Manual")
+            var n = 0;
+            foreach (var line in series.Keys)
             {
-                ChartType = SeriesChartType.FastLine,
-                XValueType = ChartValueType.Double,
-                YValueType = ChartValueType.Double,
-                Color = Color.FromName("Green")
-            };
-            time = man.Select(x => x.time).ToList();
-            normal = man.Select(y => y.normal).ToList();
-            h.Points.DataBindXY(time, normal);
-            c.Series.Add(h);
-            h.ChartArea = "Lather";
+                var t = new Series(line)
+                {
+                    ChartType = SeriesChartType.FastLine,
+                    XValueType = ChartValueType.Double,
+                    YValueType = ChartValueType.Double,
+                    Color = Color.FromName(colors[n++]),
+                    Legend = "Legend"
+                };
+                series[line].Select(r => t.Points.AddXY(r.time, r.normal)).ToList();
+                c.Series.Add(t);
+                t.ChartArea = "Lather";
+            }
 
             Console.WriteLine("saving chart " + name);
             c.SaveImage(name + ".png", ChartImageFormat.Png);
@@ -371,6 +373,7 @@ namespace ParseText
         //    "G-0033f",
         //    "L-0058f"
         //};
+
 
         static void ReadFile(string file, IXLRow outrow)
         {
@@ -403,26 +406,65 @@ namespace ParseText
             if (testType == TestType.Lather)
             {
                 var data = lines.Skip(firstline).Take(rowmap[(int)TestType.Lather]).Select(s => new Reading(s)).Where(d => d.rate > 99.0 && d.rate < 101.0).ToList();
+                var da = data.ToArray();
 
                 var max = data.Max(d => d.normal);
+                var maxt = data.First(d => d.normal == max).time;
+                var mini = data.Select((v, i) => new { val = v, idx = i }).First(d => d.val.time > max + 1).idx;
+                var maxi = data.Select((v, i) => new { val = v, idx = i }).First(d => d.val.time > 10).idx;
+
+                var minfit = 20;
+
                 var ninf = data.Where(d => d.time > 20).Average(d => d.normal);
-                var n2fit = data.Where(d => d.normal <= ((max + ninf) / 2.0) && d.time < 10);
+
+                int besti = 0, bestj = 0;
+                var n2min = double.MaxValue;
+                Tuple<double, double> bestp = null;
+                for (int i = mini; i < maxi- minfit; i++)
+                {
+                    for (int j = i + minfit; j < maxi; j++)
+                    {
+                        var n2fit = data.Skip(i).Take(j - i);
+                        var y2fit = n2fit.Select(d => Math.Log(Math.Abs(d.normal - ninf))).ToArray();
+                        var x2fit = n2fit.Select(d => d.time).ToArray();
+                        Tuple<double, double> p = mn.Fit.Line(x2fit, y2fit);   // item1 intercept, item2 slope
+                        var n0 = Math.Exp(p.Item1) + ninf;
+                        var n2 = n2fit.Sum(d => Math.Pow(d.normal - (n0 + (ninf - n0) * (1 - Math.Exp(d.time * p.Item2))), 2));
+                        if (n2 < n2min * (j- i))
+                        {
+                            n2min = n2/(j- i);
+                            besti = i;
+                            bestj = j;
+                            bestp = p;
+                        }
+                    }
+                }
+
                 //var fit = data.Where(d => d.normal <= ((max + ninf) / 2.0) && d.time <= 10);
+                //var y2f = data.Select(d => new Reading(d.time, Math.Log(Math.Abs(d.normal - ninf))));
+                //var d1 = y2f.Zip(y2f.Skip(1), (a, b) => new Reading(a, b));
+                //var d2 = d1.Zip(d1.Skip(1), (a, b) => new Reading(b.time, (b.normal - a.normal) / ((b.rate - a.time) / 2)));
 
-                //var y2f = data.Select(d => new Reading(d.time,  Math.Log(Math.Abs(d.normal - ninf))));
-                var y2fit = n2fit.Select(d => Math.Log(Math.Abs(d.normal - ninf))).ToArray();
-                var x2fit = n2fit.Select(d => d.time).ToArray();
-                Tuple<double, double> p = mn.Fit.Line(x2fit, y2fit);   // item1 intercept, item2 slope
+                Console.WriteLine("fit i, j: " + besti + ", " + bestj + ", n2: "+ n2min);
 
-                var n0 = Math.Exp(p.Item1) + ninf;
-
-                var fit = data.Select(d => new Reading(d.time, n0 + (ninf - n0) * (1 - Math.Exp(d.time * p.Item2))));
+                var int0 = Math.Exp(bestp.Item1) + ninf;
+                var fit = data.Select(d => new Reading(d.time, int0 + (ninf - int0) * (1 - Math.Exp(d.time * bestp.Item2))));
                 //var NP = _t95[can(file)];
                 //var man = data.Select(d => new Reading(d.time, NP[0] + (NP[1] - NP[0]) * (1 - Math.Exp(- d.time / NP[2]))));
-                var n2 = n2fit.Sum(d => Math.Pow(d.normal - (n0 + (ninf - n0) * (1 - Math.Exp(d.time * p.Item2))), 2));
                 //var g = mn.GoodnessOfFit.RSquared(x2fit.Select(x => p.Item1 + p.Item2 * x), y2fit); // == 1.0
 
-                //ChartFile(can(file), data, fit.ToList(), man.ToList());
+                Dictionary<string, List<Reading>> Series = new Dictionary<string, List<Reading>>();
+                Series["readings"] = data;
+                Series["fit"] = fit.ToList();
+                Series["zero"] = new List<Reading>() { new Reading(data.Min(t => t.time), 0), new Reading(data.Max(t => t.time), 0) };
+                var mind = data.Skip(besti).First();
+                var maxd = data.Skip(bestj).First();
+                Series["low"] = new List<Reading>() { new Reading(mind.time, 1), new Reading(mind.time, -1) };
+                Series["high"] = new List<Reading>() { new Reading(maxd.time, 1), new Reading(maxd.time, -1) };
+               
+                //Series["fit"] = fit.ToList();
+
+                ChartSeries(can(file), Series);
 
                 // Create the model
                 //if (model == null)
@@ -442,7 +484,7 @@ namespace ParseText
                 //N0.SetInitialValue(n0);
                 //TC.SetInitialValue(-1 / p.Item2);
 
-                var tc = -1 / p.Item2;
+                var tc = -1 / bestp.Item2;
 
                 //var cost = new SumTermBuilder(n2fit.Count());
 
@@ -469,8 +511,8 @@ namespace ParseText
                 //outrow.Cell(9).SetValue<double>(ninf);
                 //outrow.Cell(10).SetValue<double>(TC.GetDouble() * t95);
 
-                outrow.Cell(6).SetValue<double>(n2);
-                outrow.Cell(7).SetValue<double>(n0);
+                outrow.Cell(6).SetValue<double>(n2min * (bestj - besti));
+                outrow.Cell(7).SetValue<double>(int0);
                 outrow.Cell(8).SetValue<double>(ninf);
                 outrow.Cell(9).SetValue<double>(tc);
                 outrow.Cell(10).SetValue<double>(tc * t95);
