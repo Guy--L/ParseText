@@ -140,6 +140,7 @@ namespace ParseText
         private static string _data;
         private static string _infileprefix = @"Rheology Form Filled In ";
         private static string _outfilename = @"{0} Rheology Analysis v3 with SPTT Entry Macro (MACRO v4.1) {1}";
+        private static string _outdirectory;
         private static string _currentsample;
 
         private static Dictionary<string, double[]> _t95 = new Dictionary<string, double[]>();
@@ -153,6 +154,7 @@ namespace ParseText
             _data = ConfigurationManager.AppSettings["datadirectory"];
             _infileprefix = ConfigurationManager.AppSettings["infileprefix"];
             _outfilename = ConfigurationManager.AppSettings["outfilename"];
+            _outdirectory = ConfigurationManager.AppSettings["outdirectory"];
 
             if (args.Length == 0) {
                 args = new string[] { "." };
@@ -306,8 +308,9 @@ namespace ParseText
                     ReadFile(file, outrow);
                 }
             }
-            
-            outxl.SaveAs(Path.Combine(data, outfilename));
+
+            var outpath = string.IsNullOrWhiteSpace(_outdirectory) ? data : _outdirectory;
+            outxl.SaveAs(Path.Combine(outpath, outfilename));
             Console.WriteLine("saved as " + outfilename);
         }
 
@@ -464,7 +467,7 @@ namespace ParseText
                
                 //Series["fit"] = fit.ToList();
 
-                ChartSeries(can(file), Series);
+                // ChartSeries(can(file), Series);
 
                 // Create the model
                 //if (model == null)

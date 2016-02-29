@@ -37,6 +37,7 @@ mes/Resources/BuildDate.txt
 BuildDate.txt
 app_data/*
 TestData/*
+results/*
 t95/*
 Rejected/*
 Issue*/*
