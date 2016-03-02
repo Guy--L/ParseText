@@ -442,6 +442,23 @@ namespace ParseText
                         }
                     }
                 }
+                if (bestp == null)
+                {
+                    Console.WriteLine("no best fit found");
+                    outrow.Cell(6).SetValue<double>(0.0);
+                    outrow.Cell(7).SetValue<double>(0.0);
+                    outrow.Cell(8).SetValue<double>(ninf);
+                    outrow.Cell(9).SetValue<double>(0.0);
+                    outrow.Cell(10).SetValue<double>(0.0);
+#if DEBUG
+                    var y2f = data.Select(d => new Reading(d.time, Math.Log(Math.Abs(d.normal - ninf))));
+                    Dictionary<string, List<Reading>> NoFit = new Dictionary<string, List<Reading>>();
+                    NoFit["readings"] = data;
+                    NoFit["ln(readings)"] = y2f.ToList();
+                    ChartSeries(can(file), NoFit);
+#endif
+                    return;
+                }
 
                 //var fit = data.Where(d => d.normal <= ((max + ninf) / 2.0) && d.time <= 10);
                 //var y2f = data.Select(d => new Reading(d.time, Math.Log(Math.Abs(d.normal - ninf))));
@@ -456,14 +473,14 @@ namespace ParseText
                 //var man = data.Select(d => new Reading(d.time, NP[0] + (NP[1] - NP[0]) * (1 - Math.Exp(- d.time / NP[2]))));
                 //var g = mn.GoodnessOfFit.RSquared(x2fit.Select(x => p.Item1 + p.Item2 * x), y2fit); // == 1.0
 
-                Dictionary<string, List<Reading>> Series = new Dictionary<string, List<Reading>>();
-                Series["readings"] = data;
-                Series["fit"] = fit.ToList();
-                Series["zero"] = new List<Reading>() { new Reading(data.Min(t => t.time), 0), new Reading(data.Max(t => t.time), 0) };
-                var mind = data.Skip(besti).First();
-                var maxd = data.Skip(bestj).First();
-                Series["low"] = new List<Reading>() { new Reading(mind.time, 1), new Reading(mind.time, -1) };
-                Series["high"] = new List<Reading>() { new Reading(maxd.time, 1), new Reading(maxd.time, -1) };
+                //Dictionary<string, List<Reading>> Series = new Dictionary<string, List<Reading>>();
+                //Series["readings"] = data;
+                //Series["fit"] = fit.ToList();
+                //Series["zero"] = new List<Reading>() { new Reading(data.Min(t => t.time), 0), new Reading(data.Max(t => t.time), 0) };
+                //var mind = data.Skip(besti).First();
+                //var maxd = data.Skip(bestj).First();
+                //Series["low"] = new List<Reading>() { new Reading(mind.time, 1), new Reading(mind.time, -1) };
+                //Series["high"] = new List<Reading>() { new Reading(maxd.time, 1), new Reading(maxd.time, -1) };
                
                 //Series["fit"] = fit.ToList();
 
