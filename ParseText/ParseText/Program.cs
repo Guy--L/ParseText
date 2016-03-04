@@ -163,6 +163,7 @@ namespace ParseText
             // look for request XLs in all directories on command line
             testmap.Add(143, TestType.Lather);
             testmap.Add(142, TestType.Lather);
+            testmap.Add(417, TestType.Fract_Band);
 
             foreach (var s in args)
             {

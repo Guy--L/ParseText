@@ -1,1 +1,0 @@
-EXP-15-CC44-14-100100100-G-FP-006 100_s G-0031f9/4/2015 12:55:07 PMtrim me 2time	shear rate	normal force	shear stresss	1/s	N	Pa15.020	1.799E-4	3.629	-0.5379
