@@ -38,7 +38,8 @@ BuildDate.txt
 app_data/*
 TestData/*
 results/*
-t95/*
+Issues/*
+Issues/*/*
 Rejected/*
 NullFail/*
 Issue*/*
