@@ -34,8 +34,6 @@ namespace ParseText
 
         public double Fit(Func<Reading, double> column)
         {
-            //y = _data.Select(s => Math.Round(column(s), 3)).ToArray();
-            //x = _data.Select(s => Math.Round(s.strain, 3)).ToArray();
             y = _data.Select(s => column(s)).ToArray();
             x = _data.Select(s => s.strain).ToArray();
             Tuple<double, double> z = mn.Fit.Line(x, y);
@@ -144,10 +142,6 @@ namespace ParseText
         private static string _currentsample;
 
         private static Dictionary<string, double[]> _t95 = new Dictionary<string, double[]>();
-
-        //private static SolverContext context;
-        //private static Model model = null;
-        //private static Decision N0, TC;
 
         static void Main(string[] args)
         {
@@ -268,12 +262,14 @@ namespace ParseText
             _currentsample = request[2];
 
             var outfilename = string.Format(_outfilename, string.Join(" ", request.Take(2)), request[2]) + ".xlsm";
-            
+            var outpath = string.IsNullOrWhiteSpace(_outdirectory) ? data : _outdirectory;
+            var outfile = Path.Combine(outpath, outfilename);
+
             var outxl = new XLWorkbook("AnalysisTemplate.xlsm");
             _outsh = outxl.Worksheet("Summary Table");
-
             string samplename = "";
             ILookup<string, string> samples = null;
+
             foreach (var row in insh.Rows())
             {
                 if (row.RowNumber() < 2)
@@ -310,8 +306,7 @@ namespace ParseText
                 }
             }
 
-            var outpath = string.IsNullOrWhiteSpace(_outdirectory) ? data : _outdirectory;
-            outxl.SaveAs(Path.Combine(outpath, outfilename));
+            outxl.SaveAs(outfile);
             Console.WriteLine("saved as " + outfilename);
         }
 
@@ -368,9 +363,9 @@ namespace ParseText
                 c.Series.Add(t);
                 t.ChartArea = "Lather";
             }
-
-            Console.WriteLine("saving chart " + name);
-            c.SaveImage(name + ".png", ChartImageFormat.Png);
+            var filename = _currentsample + "_" + name.Split('(')[0];
+            Console.WriteLine("saving chart " + filename);
+            c.SaveImage(filename + ".png", ChartImageFormat.Png);
         }
 
         //private static List<string> Issue3 = new List<string> {
@@ -385,15 +380,7 @@ namespace ParseText
             var datalines = lines.Count() - firstline - 1;
             TestType testType = testmap[datalines];
 
-            //if (testType != TestType.Lather)
-            //    return;
-
             var f = Path.GetFileNameWithoutExtension(file);
-
-            //if (!Issue3.Where(q => f.Contains(q)).Any())
-            //    return;
-
-            //Console.WriteLine(testType.ToString() + "\t" + Path.GetFileNameWithoutExtension(file));
             Console.WriteLine(testType.ToString() + "\t" + can(file));
 
             if (testType == TestType.Cohesion)
@@ -414,132 +401,56 @@ namespace ParseText
 
                 var max = data.Max(d => d.normal);
                 var maxt = data.First(d => d.normal == max).time;
-                var mini = data.Select((v, i) => new { val = v, idx = i }).First(d => d.val.time > max + 1).idx;
-                var maxi = data.Select((v, i) => new { val = v, idx = i }).First(d => d.val.time > 10).idx;
-
-                var minfit = 20;
 
                 var ninf = data.Where(d => d.time > 20).Average(d => d.normal);
+                var pair = data.Select((v, i) => new { val = v, idx = i });
+                var mini = pair.Where(d => d.val.time > maxt).First(d => d.val.normal < ((max + ninf) / 2.0)).idx;
+                var maxi = pair.Skip(mini).First(d => d.val.normal < ninf).idx - 1;
 
-                int besti = 0, bestj = 0;
-                var n2min = double.MaxValue;
-                Tuple<double, double> bestp = null;
-                for (int i = mini; i < maxi- minfit; i++)
+                var n0 = 1.0;
+                var n2 = double.MaxValue;
+                var mxbest = maxi;
+                Tuple<double, double> p = null;
+
+                for (var end = maxi; end > maxi - 10; end--)
                 {
-                    for (int j = i + minfit; j < maxi; j++)
+                    var n2fit = data.Skip(mini).Take(end - mini);
+                    var y2fit = n2fit.Select(d => Math.Log(Math.Abs(d.normal - ninf))).ToArray();
+                    var x2fit = n2fit.Select(d => d.time).ToArray();
+                    Tuple<double, double> ptry = mn.Fit.Line(x2fit, y2fit);   // item1 intercept, item2 slope
+                    var n0try = Math.Exp(ptry.Item1) + ninf;
+                    var n2try = data.Skip(mini).Sum(d => Math.Pow(d.normal - (n0 + (ninf - n0) * (1 - Math.Exp(d.time * ptry.Item2))), 2));
+                    if (n2try < n2)
                     {
-                        var n2fit = data.Skip(i).Take(j - i);
-                        var y2fit = n2fit.Select(d => Math.Log(Math.Abs(d.normal - ninf))).ToArray();
-                        var x2fit = n2fit.Select(d => d.time).ToArray();
-                        Tuple<double, double> p = mn.Fit.Line(x2fit, y2fit);   // item1 intercept, item2 slope
-                        var n0 = Math.Exp(p.Item1) + ninf;
-                        var n2 = n2fit.Sum(d => Math.Pow(d.normal - (n0 + (ninf - n0) * (1 - Math.Exp(d.time * p.Item2))), 2));
-                        if (n2 < n2min * (j- i))
-                        {
-                            n2min = n2/(j- i);
-                            besti = i;
-                            bestj = j;
-                            bestp = p;
-                        }
+                        n0 = n0try;
+                        n2 = n2try;
+                        p = ptry;
+                        mxbest = end;
                     }
                 }
-                if (bestp == null)
-                {
-                    Console.WriteLine("no best fit found");
-                    outrow.Cell(6).SetValue<double>(0.0);
-                    outrow.Cell(7).SetValue<double>(0.0);
-                    outrow.Cell(8).SetValue<double>(ninf);
-                    outrow.Cell(9).SetValue<double>(0.0);
-                    outrow.Cell(10).SetValue<double>(0.0);
+                Console.WriteLine("fit i, j, 0: " + mini + ", " + maxi + ", " + mxbest + ", n2: " + n2);
+                var fit = data.Select(d => new Reading(d.time, n0 + (ninf - n0) * (1 - Math.Exp(d.time * p.Item2))));
+
 #if DEBUG
-                    var y2f = data.Select(d => new Reading(d.time, Math.Log(Math.Abs(d.normal - ninf))));
-                    Dictionary<string, List<Reading>> NoFit = new Dictionary<string, List<Reading>>();
-                    NoFit["readings"] = data;
-                    NoFit["ln(readings)"] = y2f.ToList();
-                    ChartSeries(can(file), NoFit);
+                Dictionary<string, List<Reading>> Series = new Dictionary<string, List<Reading>>();
+                Series["readings"] = data;
+                Series["fit"] = fit.ToList();
+                Series["zero"] = new List<Reading>() { new Reading(data.Min(t => t.time), 0), new Reading(data.Max(t => t.time), 0) };
+                var mind = data.Skip(mini).First();
+                var maxd = data.Skip(maxi).First();
+                Series["low"] = new List<Reading>() { new Reading(mind.time, 1), new Reading(mind.time, -1) };
+                Series["high"] = new List<Reading>() { new Reading(maxd.time, 1), new Reading(maxd.time, -1) };
+                var title = can(file) + " (n^2 = " + n2.ToString("e3") + ")";
+                ChartSeries(title, Series);
 #endif
-                    return;
-                }
 
-                //var fit = data.Where(d => d.normal <= ((max + ninf) / 2.0) && d.time <= 10);
-                //var y2f = data.Select(d => new Reading(d.time, Math.Log(Math.Abs(d.normal - ninf))));
-                //var d1 = y2f.Zip(y2f.Skip(1), (a, b) => new Reading(a, b));
-                //var d2 = d1.Zip(d1.Skip(1), (a, b) => new Reading(b.time, (b.normal - a.normal) / ((b.rate - a.time) / 2)));
+                var tc = -1 / p.Item2;
 
-                Console.WriteLine("fit i, j: " + besti + ", " + bestj + ", n2: "+ n2min);
-
-                var int0 = Math.Exp(bestp.Item1) + ninf;
-                var fit = data.Select(d => new Reading(d.time, int0 + (ninf - int0) * (1 - Math.Exp(d.time * bestp.Item2))));
-                //var NP = _t95[can(file)];
-                //var man = data.Select(d => new Reading(d.time, NP[0] + (NP[1] - NP[0]) * (1 - Math.Exp(- d.time / NP[2]))));
-                //var g = mn.GoodnessOfFit.RSquared(x2fit.Select(x => p.Item1 + p.Item2 * x), y2fit); // == 1.0
-
-                //Dictionary<string, List<Reading>> Series = new Dictionary<string, List<Reading>>();
-                //Series["readings"] = data;
-                //Series["fit"] = fit.ToList();
-                //Series["zero"] = new List<Reading>() { new Reading(data.Min(t => t.time), 0), new Reading(data.Max(t => t.time), 0) };
-                //var mind = data.Skip(besti).First();
-                //var maxd = data.Skip(bestj).First();
-                //Series["low"] = new List<Reading>() { new Reading(mind.time, 1), new Reading(mind.time, -1) };
-                //Series["high"] = new List<Reading>() { new Reading(maxd.time, 1), new Reading(maxd.time, -1) };
-               
-                //Series["fit"] = fit.ToList();
-
-                // ChartSeries(can(file), Series);
-
-                // Create the model
-                //if (model == null)
-                //{
-                //    context = SolverContext.GetContext();
-                //    model = context.CreateModel();
-                //    // Add a decisions
-                //    N0 = new Decision(Domain.Real, "n0");
-                //    TC = new Decision(Domain.Real, "tc");
-                //    model.AddDecisions(N0);
-                //    model.AddDecisions(TC);
-                //}
-
-                //Console.WriteLine("Log-linear regression estimates for "+ can(file));
-                //Console.WriteLine("#: "+n2fit.Count()+"iN0: " + n0 + ", ninf: "+ninf+", p.Item1: "+p.Item1+", p.Item2: "+p.Item2);
-                //Console.WriteLine("iTC: " + (-1 / p.Item2));
-                //N0.SetInitialValue(n0);
-                //TC.SetInitialValue(-1 / p.Item2);
-
-                var tc = -1 / bestp.Item2;
-
-                //var cost = new SumTermBuilder(n2fit.Count());
-
-                //n2fit.ForEach(d =>
-                //{
-                //    Term r = N0 + (ninf - N0) * (1 - Model.Exp(-d.time / TC));
-                //    r -= d.normal;
-                //    r *= r;
-                //    cost.Add(r);
-                //});
-
-                //model.AddGoal("Chi2", GoalKind.Minimize, cost.ToTerm());            // add goal
-
-                ////var directive = new CompactQuasiNewtonDirective();
-                ////var solver = context.Solve(directive);
-                //var solver = context.Solve();
-                //var report = solver.GetReport();
-                //Console.Write(report);
-
-                //var chi2 = model.Goals.First().ToDouble();
-
-                //outrow.Cell(7).SetValue<double>(N0.GetDouble());
-                //outrow.Cell(8).SetValue<double>(TC.GetDouble());
-                //outrow.Cell(9).SetValue<double>(ninf);
-                //outrow.Cell(10).SetValue<double>(TC.GetDouble() * t95);
-
-                outrow.Cell(6).SetValue<double>(n2min * (bestj - besti));
-                outrow.Cell(7).SetValue<double>(int0);
+                outrow.Cell(6).SetValue<double>(n2);
+                outrow.Cell(7).SetValue<double>(n0);
                 outrow.Cell(8).SetValue<double>(ninf);
                 outrow.Cell(9).SetValue<double>(tc);
                 outrow.Cell(10).SetValue<double>(tc * t95);
-
-                //Console.WriteLine("--> Chi2: " + chi2 + ", N0: " + N0.GetDouble() + ", TC: " + TC.GetDouble());
-                //model.RemoveGoal(model.Goals.First());                              // remove goal for next model run                
             }
             if (testType == TestType.Oscillation)
             {
@@ -563,42 +474,12 @@ namespace ParseText
                 var yp = ypi.ToArray();
 
                 var ypstress = (yp[1].stress - yp[0].stress) / (yp[1].strain - yp[0].strain) * (ypstrain - yp[0].strain) + yp[0].stress;
-                //if (_can == "AG" || _can == "Z")
-                //{
-                //    Console.WriteLine("midtriple:");
-                //    var rdg = midtriple.First();
-
-                //    Console.Write(rdg.strain + " -- " + intersectx + " " + (rdg.strain < intersectx) + " < ");
-                //    rdg.print();
-
-                //    rdg = midtriple.ElementAt(1);
-                //    Console.Write(rdg.strain + " -- " + intersectx + " " + (rdg.strain < intersectx) + " < ");
-                //    rdg.print();
-
-                //    rdg = midtriple.Last();
-                //    Console.Write(rdg.strain + " -- " + intersectx + " " + (rdg.strain < intersectx) + " < ");
-                //    rdg.print();
-
-                //    Console.WriteLine("mid count: " + mid.Count());
-                //    Console.WriteLine("ypt count: " + ypt.Count());
-                //    //Console.WriteLine("denom: " + denom + ", strd: " + strd);
-                //    Console.WriteLine("iline intercept: " + iline.intercept + ", slope: " + iline.slope);
-                //    Console.WriteLine("mline intercept: " + mline.intercept + ", slope: " + mline.slope);
-
-                //    //Console.WriteLine("gstrain: " + gstrain);
-                //    //Console.WriteLine("gstress: " + gstress);
-                //}
-                //    Console.WriteLine(ypstress+" "+ypstrain);
-
                 var bpstrain = (fline.intercept - mline.intercept) / (mline.slope - fline.slope);
                 var bpt = readings.TakeWhile(s => s.strain < bpstrain);
                 var bp = readings.Skip(bpt.Count() - 1).Take(2).ToArray();
                 var bpstress = (bp[1].stress - bp[0].stress) / (bp[1].strain - bp[0].strain) * (bpstrain - bp[0].strain) + bp[0].stress;
 
                 var cross = readings.Skip(1).TakeWhile(s => s.prime >= s.dprime);
-                // old formula
-                // var cr = readings.Skip(cross.Count() - 4).Take(2).ToArray();
-
                 var crx = readings.Skip(cross.Count()).Take(2);
                 var cr = crx.ToArray();
 
@@ -632,13 +513,9 @@ namespace ParseText
                 var max = data.Take(319).Max(s => s.shear);
                 var sam = data.Take(319).TakeWhile(s => s.shear < max);
 
-                //Console.WriteLine("sam count: " + sam.Count());
-
                 var start = sam.Any()?sam.Count(): 319;
                 var avg = data.Skip(start).Take(101).Average(s => s.shear);
                 var category = avg < max;
-                //Console.WriteLine("avg max cat");
-                //Console.WriteLine(avg + " " + max + " " + category);
 
                 var at5 = data.Last(t => t.time <= 5.0).shear;
                  
@@ -651,9 +528,6 @@ namespace ParseText
                 outrow.Cell(25).SetValue<double>(at60);
                 outrow.Cell(26).SetValue<double>(delta);
                 if (category) outrow.Cell(27).SetValue<double>(orig.Max(s => s.shear));
-
-                //Console.WriteLine("cat at5 at60 delta peak");
-                //Console.WriteLine(category + " " + at5 + " " + at60 + " " + delta + " " + span);
             }
         }
     }
