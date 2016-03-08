@@ -9,6 +9,7 @@ using mn = MathNet.Numerics;
 using md = MathNet.Numerics.Statistics;
 //using Microsoft.SolverFoundation.Services;
 using System.Windows.Forms.DataVisualization.Charting;
+using Microsoft.SolverFoundation.Services;
 
 namespace ParseText
 {
@@ -140,6 +141,10 @@ namespace ParseText
         private static string _outfilename = @"{0} Rheology Analysis v3 with SPTT Entry Macro (MACRO v4.1) {1}";
         private static string _outdirectory;
         private static string _currentsample;
+
+        private static SolverContext context;
+        private static Model model = null;
+        private static Decision N0, TC;
 
         private static Dictionary<string, double[]> _t95 = new Dictionary<string, double[]>();
 
@@ -404,33 +409,63 @@ namespace ParseText
 
                 var ninf = data.Where(d => d.time > 20).Average(d => d.normal);
                 var pair = data.Select((v, i) => new { val = v, idx = i });
-                var mini = pair.Where(d => d.val.time > maxt).First(d => d.val.normal < ((max + ninf) / 2.0)).idx;
+                var mini = pair.Where(d => d.val.time > maxt+1).First().idx;
                 var maxi = pair.Skip(mini).First(d => d.val.normal < ninf).idx - 1;
 
-                var n0 = 1.0;
-                var n2 = double.MaxValue;
-                var mxbest = maxi;
-                Tuple<double, double> p = null;
+                var n2fit = data.Skip(mini).Take(maxi - mini);
+                var y2fit = n2fit.Select(d => Math.Log(Math.Abs(d.normal - ninf))).ToArray();
+                var x2fit = n2fit.Select(d => d.time).ToArray();
+                Tuple<double, double> p = mn.Fit.Line(x2fit, y2fit);   // item1 intercept, item2 slope
+                var n0 = Math.Exp(p.Item1) + ninf;
+                var n2 = data.Skip(mini).Sum(d => Math.Pow(d.normal - (n0 + (ninf - n0) * (1 - Math.Exp(d.time * p.Item2))), 2));
 
-                for (var end = maxi; end > maxi - 10; end--)
+                Console.WriteLine("fit i, j, 0: " + mini + ", " + maxi + ", n2: " + n2);
+
+                // Create the model
+                if (model == null)
                 {
-                    var n2fit = data.Skip(mini).Take(end - mini);
-                    var y2fit = n2fit.Select(d => Math.Log(Math.Abs(d.normal - ninf))).ToArray();
-                    var x2fit = n2fit.Select(d => d.time).ToArray();
-                    Tuple<double, double> ptry = mn.Fit.Line(x2fit, y2fit);   // item1 intercept, item2 slope
-                    var n0try = Math.Exp(ptry.Item1) + ninf;
-                    var n2try = data.Skip(mini).Sum(d => Math.Pow(d.normal - (n0 + (ninf - n0) * (1 - Math.Exp(d.time * ptry.Item2))), 2));
-                    if (n2try < n2)
-                    {
-                        n0 = n0try;
-                        n2 = n2try;
-                        p = ptry;
-                        mxbest = end;
-                    }
+                    context = SolverContext.GetContext();
+                    model = context.CreateModel();
+                    // Add a decisions
+                    N0 = new Decision(Domain.Real, "n0");
+                    TC = new Decision(Domain.Real, "tc");
+                    model.AddDecisions(N0);
+                    model.AddDecisions(TC);
                 }
-                Console.WriteLine("fit i, j, 0: " + mini + ", " + maxi + ", " + mxbest + ", n2: " + n2);
-                var fit = data.Select(d => new Reading(d.time, n0 + (ninf - n0) * (1 - Math.Exp(d.time * p.Item2))));
 
+                N0.SetInitialValue(n0);
+                TC.SetInitialValue(-1 / p.Item2);
+
+                var cost = new SumTermBuilder(n2fit.Count());
+
+                n2fit.ForEach(d =>
+                {
+                    Term r = N0 + (ninf - N0) * (1 - Model.Exp(-d.time / TC));
+                    r -= d.normal;
+                    r *= r;
+                    cost.Add(r);
+                });
+
+                model.AddGoal("Chi2", GoalKind.Minimize, cost.ToTerm());            // add goal
+
+                //var directive = new CompactQuasiNewtonDirective();
+                //var solver = context.Solve(directive);
+                var solver = context.Solve();
+                var report = solver.GetReport();
+                Console.Write(report);
+
+                var chi2 = model.Goals.First().ToDouble();
+
+                outrow.Cell(6).SetValue<double>(chi2);
+                outrow.Cell(7).SetValue<double>(N0.GetDouble());
+                outrow.Cell(8).SetValue<double>(TC.GetDouble());
+                outrow.Cell(9).SetValue<double>(ninf);
+                outrow.Cell(10).SetValue<double>(TC.GetDouble() * t95);
+
+                var fit = data.Select(d => new Reading(d.time, N0.GetDouble() + (ninf - N0.GetDouble()) * (1 - Math.Exp(-d.time / TC.GetDouble()))));
+
+                Console.WriteLine("--> Chi2: " + chi2 + ", N0: " + N0.GetDouble() + ", TC: " + TC.GetDouble());
+                model.RemoveGoal(model.Goals.First());                              // remove goal for next model run       
 #if DEBUG
                 Dictionary<string, List<Reading>> Series = new Dictionary<string, List<Reading>>();
                 Series["readings"] = data;
@@ -440,7 +475,7 @@ namespace ParseText
                 var maxd = data.Skip(maxi).First();
                 Series["low"] = new List<Reading>() { new Reading(mind.time, 1), new Reading(mind.time, -1) };
                 Series["high"] = new List<Reading>() { new Reading(maxd.time, 1), new Reading(maxd.time, -1) };
-                var title = can(file) + " (n^2 = " + n2.ToString("e3") + ")";
+                var title = can(file) + " (chi2 = " + chi2.ToString("e3") + ")";
                 ChartSeries(title, Series);
 #endif
 
