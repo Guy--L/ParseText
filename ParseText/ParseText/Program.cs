@@ -457,15 +457,15 @@ namespace ParseText
 
                 outrow.Cell(6).SetValue<double>(chi2);
                 outrow.Cell(7).SetValue<double>(N0.GetDouble());
-                outrow.Cell(8).SetValue<double>(TC.GetDouble());
-                outrow.Cell(9).SetValue<double>(ninf);
+                outrow.Cell(8).SetValue<double>(ninf);
+                outrow.Cell(9).SetValue<double>(TC.GetDouble());
                 outrow.Cell(10).SetValue<double>(TC.GetDouble() * t95);
 
                 var addedzero = (new List<Reading>() { new Reading(0, N0.GetDouble()) }).Concat(setup);
 
                 var fit = addedzero.Select(d => new Reading(d.time, N0.GetDouble() + (ninf - N0.GetDouble()) * (1 - Math.Exp(-d.time / TC.GetDouble()))));
 
-                Console.WriteLine("--> Chi2: " + chi2 + ", N0: " + N0.GetDouble() + ", TC: " + TC.GetDouble());
+                Console.WriteLine("--> Chi2: " + chi2 + ", N0: " + N0.GetDouble() + ", TC: " + TC.GetDouble() + ", ninf: " + ninf);
                 model.RemoveGoal(model.Goals.First());                              // remove goal for next model run       
 #if DEBUG
                 Dictionary<string, List<Reading>> Series = new Dictionary<string, List<Reading>>();
