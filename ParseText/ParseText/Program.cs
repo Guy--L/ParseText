@@ -346,6 +346,7 @@ namespace ParseText
             a.AxisX.LabelStyle.ForeColor = Color.Black;
             a.AxisX.LabelStyle.Font = new Font("Arial", 14);
             a.AxisX.IsLabelAutoFit = true;
+            a.AxisX.Minimum = 0;
             c.ChartAreas.Add(a);
 
             c.Legends.Add(new Legend("Legend") {
@@ -401,15 +402,15 @@ namespace ParseText
             }
             if (testType == TestType.Lather)
             {
-                var data = lines.Skip(firstline).Take(rowmap[(int)TestType.Lather]).Select(s => new Reading(s)).Where(d => d.rate > 99.0 && d.rate < 101.0).ToList();
-                var da = data.ToArray();
+                var setup = lines.Skip(firstline).Take(rowmap[(int)TestType.Lather]).Select(s => new Reading(s));
+                var data = setup.Where(d => d.rate > 99.0 && d.rate < 101.0).ToList();
 
                 var max = data.Max(d => d.normal);
                 var maxt = data.First(d => d.normal == max).time;
 
                 var ninf = data.Where(d => d.time > 20).Average(d => d.normal);
                 var pair = data.Select((v, i) => new { val = v, idx = i });
-                var mini = pair.Where(d => d.val.time > maxt+1).First().idx;
+                var mini = pair.First(d => d.val.normal <= (max + ninf)/2).idx;
                 var maxi = pair.Skip(mini).First(d => d.val.normal < ninf).idx - 1;
 
                 var n2fit = data.Skip(mini).Take(maxi - mini);
@@ -417,9 +418,6 @@ namespace ParseText
                 var x2fit = n2fit.Select(d => d.time).ToArray();
                 Tuple<double, double> p = mn.Fit.Line(x2fit, y2fit);   // item1 intercept, item2 slope
                 var n0 = Math.Exp(p.Item1) + ninf;
-                var n2 = data.Skip(mini).Sum(d => Math.Pow(d.normal - (n0 + (ninf - n0) * (1 - Math.Exp(d.time * p.Item2))), 2));
-
-                Console.WriteLine("fit i, j, 0: " + mini + ", " + maxi + ", n2: " + n2);
 
                 // Create the model
                 if (model == null)
@@ -436,6 +434,7 @@ namespace ParseText
                 N0.SetInitialValue(n0);
                 TC.SetInitialValue(-1 / p.Item2);
 
+                n2fit = data.Skip(mini);
                 var cost = new SumTermBuilder(n2fit.Count());
 
                 n2fit.ForEach(d =>
@@ -462,30 +461,24 @@ namespace ParseText
                 outrow.Cell(9).SetValue<double>(ninf);
                 outrow.Cell(10).SetValue<double>(TC.GetDouble() * t95);
 
-                var fit = data.Select(d => new Reading(d.time, N0.GetDouble() + (ninf - N0.GetDouble()) * (1 - Math.Exp(-d.time / TC.GetDouble()))));
+                var addedzero = (new List<Reading>() { new Reading(0, N0.GetDouble()) }).Concat(setup);
+
+                var fit = addedzero.Select(d => new Reading(d.time, N0.GetDouble() + (ninf - N0.GetDouble()) * (1 - Math.Exp(-d.time / TC.GetDouble()))));
 
                 Console.WriteLine("--> Chi2: " + chi2 + ", N0: " + N0.GetDouble() + ", TC: " + TC.GetDouble());
                 model.RemoveGoal(model.Goals.First());                              // remove goal for next model run       
 #if DEBUG
                 Dictionary<string, List<Reading>> Series = new Dictionary<string, List<Reading>>();
-                Series["readings"] = data;
+                Series["readings"] = setup.ToList();
                 Series["fit"] = fit.ToList();
                 Series["zero"] = new List<Reading>() { new Reading(data.Min(t => t.time), 0), new Reading(data.Max(t => t.time), 0) };
                 var mind = data.Skip(mini).First();
-                var maxd = data.Skip(maxi).First();
-                Series["low"] = new List<Reading>() { new Reading(mind.time, 1), new Reading(mind.time, -1) };
-                Series["high"] = new List<Reading>() { new Reading(maxd.time, 1), new Reading(maxd.time, -1) };
+                var maxd = data.Skip(maxi+1).First();
+                Series["midnormal"] = new List<Reading>() { new Reading(mind.time, 1), new Reading(mind.time, -1) };
+                Series["subplateau"] = new List<Reading>() { new Reading(maxd.time, 1), new Reading(maxd.time, -1) };
                 var title = can(file) + " (chi2 = " + chi2.ToString("e3") + ")";
                 ChartSeries(title, Series);
 #endif
-
-                var tc = -1 / p.Item2;
-
-                outrow.Cell(6).SetValue<double>(n2);
-                outrow.Cell(7).SetValue<double>(n0);
-                outrow.Cell(8).SetValue<double>(ninf);
-                outrow.Cell(9).SetValue<double>(tc);
-                outrow.Cell(10).SetValue<double>(tc * t95);
             }
             if (testType == TestType.Oscillation)
             {
