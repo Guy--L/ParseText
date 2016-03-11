@@ -410,10 +410,31 @@ namespace ParseText
 
                 var ninf = data.Where(d => d.time > 20).Average(d => d.normal);
                 var pair = data.Select((v, i) => new { val = v, idx = i });
-                var mini = pair.First(d => d.val.normal <= (max + ninf)/2).idx;
+                var mini = pair.First(d => d.val.time >= maxt && d.val.normal <= (max + ninf)/2).idx;
                 var maxi = pair.Skip(mini).First(d => d.val.normal < ninf).idx - 1;
 
+                while (maxi <= mini + 1)
+                    maxi++;
+                 
                 var n2fit = data.Skip(mini).Take(maxi - mini);
+
+                if (n2fit.Count() < 2)
+                {
+#if DEBUG
+                    Dictionary<string, List<Reading>> SeriesA = new Dictionary<string, List<Reading>>();
+                    SeriesA["readings"] = setup.ToList();
+                    SeriesA["zero"] = new List<Reading>() { new Reading(data.Min(t => t.time), 0), new Reading(data.Max(t => t.time), 0) };
+                    var mnd = data.Skip(mini).First();
+                    var mxd = data.Skip(maxi + 1).First();
+                    SeriesA["midnormal"] = new List<Reading>() { new Reading(mnd.time, 1), new Reading(mnd.time, -1) };
+                    SeriesA["subplateau"] = new List<Reading>() { new Reading(mxd.time, 1), new Reading(mxd.time, -1) };
+                    SeriesA["max"] = new List<Reading>() { new Reading(maxt, 1.5), new Reading(maxt, -1.5) };
+
+                    var titleA = can(file) + " no fit";
+                    ChartSeries(titleA, SeriesA);
+#endif
+                    return;
+                }
                 var y2fit = n2fit.Select(d => Math.Log(Math.Abs(d.normal - ninf))).ToArray();
                 var x2fit = n2fit.Select(d => d.time).ToArray();
                 Tuple<double, double> p = mn.Fit.Line(x2fit, y2fit);   // item1 intercept, item2 slope
@@ -473,7 +494,7 @@ namespace ParseText
                 Series["fit"] = fit.ToList();
                 Series["zero"] = new List<Reading>() { new Reading(data.Min(t => t.time), 0), new Reading(data.Max(t => t.time), 0) };
                 var mind = data.Skip(mini).First();
-                var maxd = data.Skip(maxi+1).First();
+                var maxd = data.Skip(maxi + 1).First();
                 Series["midnormal"] = new List<Reading>() { new Reading(mind.time, 1), new Reading(mind.time, -1) };
                 Series["subplateau"] = new List<Reading>() { new Reading(maxd.time, 1), new Reading(maxd.time, -1) };
                 var title = can(file) + " (chi2 = " + chi2.ToString("e3") + ")";
