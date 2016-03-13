@@ -410,29 +410,18 @@ namespace ParseText
 
                 var ninf = data.Where(d => d.time > 20).Average(d => d.normal);
                 var pair = data.Select((v, i) => new { val = v, idx = i });
-                var hasLow = pair.Any(d => d.val.time >= maxt && d.val.normal <= (max + ninf)/2);
-                if (!hasLow)
-                {
-                    Dictionary<string, List<Reading>> SeriesA = new Dictionary<string, List<Reading>>();
-                    SeriesA["readings"] = setup.ToList();
-                    SeriesA["zero"] = new List<Reading>() { new Reading(data.Min(t => t.time), 0), new Reading(data.Max(t => t.time), 0) };
-                    SeriesA["max"] = new List<Reading>() { new Reading(maxt, 1.5), new Reading(maxt, -1.5) };
 
-                    var titleA = can(file) + " no low";
-                    ChartSeries(titleA, SeriesA);
-                    return;
-                }
                 var minip = pair.FirstOrDefault(d => d.val.time >= maxt && d.val.normal <= (max + ninf) / 2);
                 if (minip == null) return;
                 var mini = minip.idx;
-                
+
                 var maxip = pair.Skip(mini).FirstOrDefault(d => d.val.normal < ninf);
                 if (maxip == null) return;
                 var maxi = maxip.idx - 1;
 
                 while (maxi <= mini + 1)
                     maxi++;
-                 
+
                 var n2fit = data.Skip(mini).Take(maxi - mini);
 
                 var y2fit = n2fit.Select(d => Math.Log(Math.Abs(d.normal - ninf))).ToArray();
@@ -483,7 +472,6 @@ namespace ParseText
                 outrow.Cell(10).SetValue<double>(TC.GetDouble() * t95);
 
                 var addedzero = (new List<Reading>() { new Reading(0, N0.GetDouble()) }).Concat(setup);
-
                 var fit = addedzero.Select(d => new Reading(d.time, N0.GetDouble() + (ninf - N0.GetDouble()) * (1 - Math.Exp(-d.time / TC.GetDouble()))));
 
                 Console.WriteLine("--> Chi2: " + chi2 + ", N0: " + N0.GetDouble() + ", TC: " + TC.GetDouble() + ", ninf: " + ninf);
@@ -497,6 +485,7 @@ namespace ParseText
                 var maxd = data.Skip(maxi + 1).First();
                 Series["midnormal"] = new List<Reading>() { new Reading(mind.time, 1), new Reading(mind.time, -1) };
                 Series["subplateau"] = new List<Reading>() { new Reading(maxd.time, 1), new Reading(maxd.time, -1) };
+
                 var title = can(file) + " (chi2 = " + chi2.ToString("e3") + ")";
                 ChartSeries(title, Series);
 #endif
