@@ -166,7 +166,7 @@ namespace ParseText
             _currentsample = request[2];
 
             var outfilename = string.Format(_outfilename, string.Join(" ", request.Take(2)), request[2]) + ".xlsm";
-            var outpath = form.outset ? data : form.outdir;
+            var outpath = form.notoutset ? data : form.outdir;
             var outfile = Path.Combine(outpath, outfilename);
 
             //form.WriteLine("writing to " + outfile);
@@ -270,7 +270,7 @@ namespace ParseText
                 c.Series.Add(t);
                 t.ChartArea = "Lather";
             }
-            var chartpath = form.outset ? _data : form.outdir;
+            var chartpath = form.notoutset ? _data : form.outdir;
             var filename = Path.Combine(chartpath, _currentsample + "_" + name.Split('(')[0]);
             //form.WriteLine("saving chart " + filename);
             c.SaveImage(filename + ".png", ChartImageFormat.Png);

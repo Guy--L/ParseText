@@ -12,7 +12,7 @@ namespace ParseText
     public partial class Form1 : Form
     {
         public bool doCharts { get { return graphsOn.Checked; } }
-        public bool outset { get { return string.IsNullOrWhiteSpace(output.Text); } }
+        public bool notoutset { get { return string.IsNullOrWhiteSpace(output.Text); } }
         public string outdir { get { return output.Text; } }
 
         public Form1()
