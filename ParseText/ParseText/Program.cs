@@ -380,7 +380,7 @@ namespace ParseText
                 {
                     Dictionary<string, List<Reading>> Series = new Dictionary<string, List<Reading>>();
                     Series["readings"] = setup.ToList();
-                    Series["fit"] = fit.ToList();
+                    if (N0.GetDouble() < 1000.0) Series["fit"] = fit.ToList();
                     Series["zero"] = new List<Reading>() { new Reading(data.Min(t => t.time), 0), new Reading(data.Max(t => t.time), 0) };
                     var mind = data.Skip(mini).First();
                     var maxd = data.Skip(maxi + 1).First();

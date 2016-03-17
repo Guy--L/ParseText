@@ -67,6 +67,7 @@
             this.output.Name = "output";
             this.output.Size = new System.Drawing.Size(222, 20);
             this.output.TabIndex = 2;
+            this.output.Leave += new System.EventHandler(this.output_Leave);
             // 
             // button2
             // 

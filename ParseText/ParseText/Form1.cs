@@ -1,10 +1,8 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel;
+using System.IO;
 using System.Data;
 using System.Drawing;
 using System.Linq;
-using System.Text;
 using System.Windows.Forms;
 
 namespace ParseText
@@ -68,6 +66,9 @@ namespace ParseText
             if (dr == DialogResult.OK)
             {
                 output.Text = folderBrowser.SelectedPath;
+
+                bool exists = Directory.Exists(output.Text);
+                if (!exists) Directory.CreateDirectory(output.Text);
             }
         }
 
@@ -75,6 +76,10 @@ namespace ParseText
         {
             Properties.Settings.Default["indirectories"].ToString().Split(',').Select(s => inputs.Items.Add(s)).ToList();
             output.Text = Properties.Settings.Default["outdirectory"].ToString();
+
+            bool exists = Directory.Exists(output.Text);
+            if (!exists) Directory.CreateDirectory(output.Text);
+
             button3.Enabled = inputs.Items.Count > 0;
         }
 
@@ -93,6 +98,12 @@ namespace ParseText
             {
                 inputs.Items.RemoveAt(index);
             }
+        }
+
+        private void output_Leave(object sender, EventArgs e)
+        {
+            bool exists = Directory.Exists(output.Text);
+            if (!exists) Directory.CreateDirectory(output.Text);
         }
     }
 }
