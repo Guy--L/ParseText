@@ -1,0 +1,18 @@
+﻿<?xml version='1.0' encoding='utf-8'?>
+<SettingsFile xmlns="http://schemas.microsoft.com/VisualStudio/2004/01/settings" CurrentProfile="(Default)" GeneratedClassNamespace="ParseText.Properties" GeneratedClassName="Settings">
+  <Profiles />
+  <Settings>
+    <Setting Name="infileprefix" Type="System.String" Scope="Application">
+      <Value Profile="(Default)">Rheology Form Filled In </Value>
+    </Setting>
+    <Setting Name="outfilename" Type="System.String" Scope="Application">
+      <Value Profile="(Default)">{0} Rheology Analysis v3 with SPTT Entry Macro (MACRO v4.1) {1}</Value>
+    </Setting>
+    <Setting Name="outdirectory" Type="System.String" Scope="User">
+      <Value Profile="(Default)">C:\\results</Value>
+    </Setting>
+    <Setting Name="indirectories" Type="System.String" Scope="User">
+      <Value Profile="(Default)">C:\\ra\\TestData</Value>
+    </Setting>
+  </Settings>
+</SettingsFile>

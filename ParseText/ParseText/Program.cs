@@ -3,116 +3,15 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Drawing;
+using System.Windows.Forms;
 using ClosedXML.Excel;
 using System.Configuration;
 using mn = MathNet.Numerics;
-using md = MathNet.Numerics.Statistics;
-//using Microsoft.SolverFoundation.Services;
 using System.Windows.Forms.DataVisualization.Charting;
 using Microsoft.SolverFoundation.Services;
 
 namespace ParseText
 {
-    class Line
-    {
-        private double[] x;
-        private double[] y;
-        
-        private IEnumerable<Reading> _data;
-        public double intercept;
-        public double slope;
-
-        public Line(IEnumerable<Reading> r) : this(r, c => c.stress)
-        {}
-
-        public Line(IEnumerable<Reading> r, Func<Reading, double> column)
-        {
-            _data = r;
-            //_data.ForEach(d => Console.WriteLine(column(d) + ", " + d.strain));
-            Fit(column);
-            //Console.WriteLine("y=" + slope + "x+" + intercept);
-        }
-
-        public double Fit(Func<Reading, double> column)
-        {
-            y = _data.Select(s => column(s)).ToArray();
-            x = _data.Select(s => s.strain).ToArray();
-            Tuple<double, double> z = mn.Fit.Line(x, y);
-
-            intercept = z.Item1;
-            slope = z.Item2;
-            return 0.0;
-        }
-    }
-
-    class Reading
-    {
-        public double stress;
-        public double strain;
-        public double prime;
-        public double dprime;
-
-        // overload reading members to provide two facades
-        public double time
-        {
-            get { return stress; }
-            set { stress = value; }
-        }
-        public double rate
-        {
-            get { return strain; }
-            set { stress = value; }
-        }
-        public double normal
-        {
-            get { return prime; }
-            set { prime = value; }
-        }
-        public double shear
-        {
-            get { return dprime; }
-            set { dprime = value; }
-        }
-        public Reading(string val)
-        {
-            if (string.IsNullOrWhiteSpace(val))
-                return;
-
-            var a = val.Split('\t');
-            stress = double.Parse(a[0]);
-            strain = double.Parse(a[1]);
-            prime = double.Parse(a[2]);
-            dprime = double.Parse(a[3]);
-        }
-        public Reading(double t, double n)
-        {
-            time = t;
-            normal = n;
-        }
-        public Reading(double t, double n, double b)
-        {
-            time = t;
-            normal = Math.Abs(n) > b ? 0 : n;
-        }
-        public Reading(Reading toZero)
-        {
-            rate = 0.0;
-            shear = 0.0;
-            time = toZero.time;
-            normal = toZero.normal;
-        }
-        public Reading(Reading a, Reading b)
-        {
-            time = a.time;
-            rate = b.time;
-
-            normal = (b.normal - a.normal) / (b.time - a.time);
-        }
-        public void print()
-        {
-            Console.WriteLine("(" + stress + ", " + strain + ", " + prime + ", " + dprime + ")");
-        }
-    }
 
     class Program
     {
@@ -148,11 +47,13 @@ namespace ParseText
 
         private static Dictionary<string, double[]> _t95 = new Dictionary<string, double[]>();
 
+        private static Form1 form;
+
+        [STAThread]
         static void Main(string[] args)
         {
-            _data = ConfigurationManager.AppSettings["datadirectory"];
-            _infileprefix = ConfigurationManager.AppSettings["infileprefix"];
-            _outfilename = ConfigurationManager.AppSettings["outfilename"];
+            _infileprefix = Properties.Settings.Default["infileprefix"].ToString();
+            _outfilename = Properties.Settings.Default["outfilename"].ToString();
             _outdirectory = ConfigurationManager.AppSettings["outdirectory"];
 
             if (args.Length == 0) {
@@ -164,14 +65,11 @@ namespace ParseText
             testmap.Add(142, TestType.Lather);
             testmap.Add(417, TestType.Fract_Band);
 
-            foreach (var s in args)
-            {
-                Console.WriteLine(s);
-                ControlXLInDir(s);
-            }
+            Application.EnableVisualStyles();
+            Application.SetCompatibleTextRenderingDefault(false);
 
-            Console.WriteLine("done, hit key to close");
-            Console.ReadKey();
+            form = new Form1();
+            Application.Run(form);
         }
 
         /// <summary>
@@ -181,9 +79,10 @@ namespace ParseText
         /// 
         public static void ControlXLInDir(string MyDir)
         {
+            _data = MyDir;
             var docs = Directory.GetFiles(MyDir, "*.xlsm");
 
-            Console.WriteLine("Test\tFilename");
+            form.WriteLine("Test\tFilename");
             foreach (var d in docs)
             {
                 ReadControlXL(d);
@@ -260,15 +159,17 @@ namespace ParseText
 
             if (!Directory.Exists(data))
             {
-                Console.WriteLine(data + " folder does not exist");
+                form.WriteLine(data + " folder does not exist");
                 return;
             }
-            Console.WriteLine(data + " folder exists");
+            form.WriteLine(data + " folder exists");
             _currentsample = request[2];
 
             var outfilename = string.Format(_outfilename, string.Join(" ", request.Take(2)), request[2]) + ".xlsm";
-            var outpath = string.IsNullOrWhiteSpace(_outdirectory) ? data : _outdirectory;
+            var outpath = form.outset ? data : form.outdir;
             var outfile = Path.Combine(outpath, outfilename);
+
+            //form.WriteLine("writing to " + outfile);
 
             var outxl = new XLWorkbook("AnalysisTemplate.xlsm");
             _outsh = outxl.Worksheet("Summary Table");
@@ -312,7 +213,7 @@ namespace ParseText
             }
 
             outxl.SaveAs(outfile);
-            Console.WriteLine("saved as " + outfilename);
+            //form.WriteLine("saved as " + outfilename);
         }
 
         private static int initialskip = 4;
@@ -369,8 +270,9 @@ namespace ParseText
                 c.Series.Add(t);
                 t.ChartArea = "Lather";
             }
-            var filename = _currentsample + "_" + name.Split('(')[0];
-            Console.WriteLine("saving chart " + filename);
+            var chartpath = form.outset ? _data : form.outdir;
+            var filename = Path.Combine(chartpath, _currentsample + "_" + name.Split('(')[0]);
+            //form.WriteLine("saving chart " + filename);
             c.SaveImage(filename + ".png", ChartImageFormat.Png);
         }
 
@@ -379,7 +281,6 @@ namespace ParseText
         //    "L-0058f"
         //};
 
-
         static void ReadFile(string file, IXLRow outrow)
         {
             var lines = File.ReadAllLines(file);
@@ -387,7 +288,7 @@ namespace ParseText
             TestType testType = testmap[datalines];
 
             var f = Path.GetFileNameWithoutExtension(file);
-            Console.WriteLine(testType.ToString() + "\t" + can(file));
+            form.WriteLine(testType.ToString() + "\t" + can(file));
 
             if (testType == TestType.Cohesion)
             {
@@ -461,8 +362,6 @@ namespace ParseText
                 //var solver = context.Solve(directive);
                 var solver = context.Solve();
                 var report = solver.GetReport();
-                Console.Write(report);
-
                 var chi2 = model.Goals.First().ToDouble();
 
                 outrow.Cell(6).SetValue<double>(chi2);
@@ -474,21 +373,23 @@ namespace ParseText
                 var addedzero = (new List<Reading>() { new Reading(0, N0.GetDouble()) }).Concat(setup);
                 var fit = addedzero.Select(d => new Reading(d.time, N0.GetDouble() + (ninf - N0.GetDouble()) * (1 - Math.Exp(-d.time / TC.GetDouble()))));
 
-                Console.WriteLine("--> Chi2: " + chi2 + ", N0: " + N0.GetDouble() + ", TC: " + TC.GetDouble() + ", ninf: " + ninf);
+                form.WriteLine("--> Chi2: " + chi2.ToString("F") + ", N0: " + N0.GetDouble().ToString("F") + ", TC: " + TC.GetDouble().ToString("F") + ", ninf: " + ninf.ToString("F"));
                 model.RemoveGoal(model.Goals.First());                              // remove goal for next model run       
-#if DEBUG
-                Dictionary<string, List<Reading>> Series = new Dictionary<string, List<Reading>>();
-                Series["readings"] = setup.ToList();
-                Series["fit"] = fit.ToList();
-                Series["zero"] = new List<Reading>() { new Reading(data.Min(t => t.time), 0), new Reading(data.Max(t => t.time), 0) };
-                var mind = data.Skip(mini).First();
-                var maxd = data.Skip(maxi + 1).First();
-                Series["midnormal"] = new List<Reading>() { new Reading(mind.time, 1), new Reading(mind.time, -1) };
-                Series["subplateau"] = new List<Reading>() { new Reading(maxd.time, 1), new Reading(maxd.time, -1) };
 
-                var title = can(file) + " (chi2 = " + chi2.ToString("e3") + ")";
-                ChartSeries(title, Series);
-#endif
+                if (form.doCharts)
+                {
+                    Dictionary<string, List<Reading>> Series = new Dictionary<string, List<Reading>>();
+                    Series["readings"] = setup.ToList();
+                    Series["fit"] = fit.ToList();
+                    Series["zero"] = new List<Reading>() { new Reading(data.Min(t => t.time), 0), new Reading(data.Max(t => t.time), 0) };
+                    var mind = data.Skip(mini).First();
+                    var maxd = data.Skip(maxi + 1).First();
+                    Series["midnormal"] = new List<Reading>() { new Reading(mind.time, 1), new Reading(mind.time, -1) };
+                    Series["subplateau"] = new List<Reading>() { new Reading(maxd.time, 1), new Reading(maxd.time, -1) };
+
+                    var title = can(file) + " (chi2 = " + chi2.ToString("e3") + ")";
+                    ChartSeries(title, Series);
+                }
             }
             if (testType == TestType.Oscillation)
             {
