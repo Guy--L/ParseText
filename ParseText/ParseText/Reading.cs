@@ -68,6 +68,11 @@ namespace ParseText
 
             normal = (b.normal - a.normal) / (b.time - a.time);
         }
+        public Reading cutoff(double threshold)
+        {
+            if (normal > threshold) normal = 0.0;
+            return this;
+        }
         public string print()
         {
             return "(" + stress + ", " + strain + ", " + prime + ", " + dprime + ")";

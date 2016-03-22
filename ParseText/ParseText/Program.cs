@@ -287,6 +287,9 @@ namespace ParseText
             var datalines = lines.Count() - firstline - 1;
             TestType testType = testmap[datalines];
 
+            //if (testType != TestType.Lather || can(file) != "AV")
+            //    return;
+
             var f = Path.GetFileNameWithoutExtension(file);
             form.WriteLine(testType.ToString() + "\t" + can(file));
 
@@ -304,15 +307,18 @@ namespace ParseText
             if (testType == TestType.Lather)
             {
                 var setup = lines.Skip(firstline).Take(rowmap[(int)TestType.Lather]).Select(s => new Reading(s));
-                var data = setup.Where(d => d.rate > 99.0 && d.rate < 101.0).ToList();
+                var data = setup.Where(d => d.rate >= 99.0 && d.rate <= 101.0).ToList();
 
                 var max = data.Max(d => d.normal);
-                var maxt = data.First(d => d.normal == max).time;
 
-                var ninf = data.Where(d => d.time > 20).Average(d => d.normal);
-                var pair = data.Select((v, i) => new { val = v, idx = i });
+                var ninf = setup.Where(d => d.time > 20).Average(d => d.normal);
+                var mid = (max + ninf) / 2;
 
-                var minip = pair.FirstOrDefault(d => d.val.time >= maxt && d.val.normal <= (max + ninf) / 2);
+                var pair = data.Select((v, i) => new { val = v.cutoff(mid), idx = i });
+                max = pair.Max(d => d.val.normal);
+                var maxidx = pair.First(d => d.val.normal == max).idx;
+
+                var minip = pair.FirstOrDefault(d => d.idx > maxidx && d.val.normal <= mid);
                 if (minip == null) return;
                 var mini = minip.idx;
 
@@ -321,8 +327,12 @@ namespace ParseText
                 var maxi = maxip.idx - 1;
 
                 while (maxi <= mini + 1)
+                {
+                    //form.Write(".");
                     maxi++;
+                }
 
+//                form.WriteLine("max: " + max + ", inf: "+ ninf + ", avg: "+ mid);
                 var n2fit = data.Skip(mini).Take(maxi - mini);
 
                 var y2fit = n2fit.Select(d => Math.Log(Math.Abs(d.normal - ninf))).ToArray();
@@ -373,7 +383,7 @@ namespace ParseText
                 var addedzero = (new List<Reading>() { new Reading(0, N0.GetDouble()) }).Concat(setup);
                 var fit = addedzero.Select(d => new Reading(d.time, N0.GetDouble() + (ninf - N0.GetDouble()) * (1 - Math.Exp(-d.time / TC.GetDouble()))));
 
-                form.WriteLine("--> Chi2: " + chi2.ToString("F") + ", N0: " + N0.GetDouble().ToString("F") + ", TC: " + TC.GetDouble().ToString("F") + ", ninf: " + ninf.ToString("F"));
+                //form.WriteLine("--> Chi2: " + chi2.ToString("F") + ", N0: " + N0.GetDouble().ToString("F") + ", TC: " + TC.GetDouble().ToString("F") + ", ninf: " + ninf.ToString("F"));
                 model.RemoveGoal(model.Goals.First());                              // remove goal for next model run       
 
                 if (form.doCharts)

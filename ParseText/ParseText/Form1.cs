@@ -23,6 +23,13 @@ namespace ParseText
             output.Text = "";
         }
 
+        public void Write(string s)
+        {
+            var list = progress.Items;
+            var last = list[list.Count - 1] + s;
+            list[list.Count - 1] = last;
+        }
+
         public void WriteLine(string s)
         {
             progress.Items.Add(s);
