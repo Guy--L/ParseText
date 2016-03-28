@@ -52,6 +52,9 @@ namespace ParseText
                 WriteLine(file);
                 Program.ControlXLInDir(file);
             }
+            if (doCharts)
+                Program.ChartHistograms();
+
             WriteLine("\n");
             WriteLine("Done");
             button3.BackColor = oldcolor;

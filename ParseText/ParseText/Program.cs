@@ -7,8 +7,10 @@ using System.Windows.Forms;
 using ClosedXML.Excel;
 using System.Configuration;
 using mn = MathNet.Numerics;
+using MathNet.Numerics.Statistics;
 using System.Windows.Forms.DataVisualization.Charting;
 using Microsoft.SolverFoundation.Services;
+using System.Diagnostics;
 
 namespace ParseText
 {
@@ -45,7 +47,15 @@ namespace ParseText
         private static Model model = null;
         private static Decision N0, TC;
 
-        private static Dictionary<string, double[]> _t95 = new Dictionary<string, double[]>();
+        private static Dictionary<string, double[]> _t95man = new Dictionary<string, double[]>();
+        private static List<double>[] _t95err = new List<double>[5]
+        {
+            new List<double>(),
+            new List<double>(),
+            new List<double>(),
+            new List<double>(),
+            new List<double>()
+        };
 
         private static Form1 form;
 
@@ -80,6 +90,8 @@ namespace ParseText
         public static void ControlXLInDir(string MyDir)
         {
             _data = MyDir;
+            _t95man.Clear();
+
             var docs = Directory.GetFiles(MyDir, "*.xlsm");
 
             form.WriteLine("Test\tFilename");
@@ -144,8 +156,37 @@ namespace ParseText
                 if (string.IsNullOrWhiteSpace(can))
                     continue;
 
-                _t95[can] = new double[] { row.Cell(7).GetValue<double>(), row.Cell(8).GetValue<double>(), row.Cell(9).GetValue<double>() };
+                _t95man[can] = new double[] {
+                      row.Cell(6).GetValue<double>()
+                    , row.Cell(7).GetValue<double>()
+                    , row.Cell(8).GetValue<double>()
+                    , row.Cell(9).GetValue<double>()
+                    , row.Cell(10).GetValue<double>()
+                };
             }
+        }
+
+        private static string[] nLabels = new string[] { "n^2", "n0", "nInf", "tC", "t95" };
+        private static int[] bins = new int[] { 200, 10000000, 200, 200, 200 };
+        private static int[] show = new int[] { 20, 40, 20, 20, 20 }; 
+
+        public static void ChartHistograms()
+        {
+            Dictionary<string, Tuple<Histogram, DescriptiveStatistics>> series = new Dictionary<string, Tuple<Histogram, DescriptiveStatistics>>();
+
+            int j = 0;
+            foreach (var stat in nLabels)
+            {
+                var err = _t95err[j];
+                var hist = new Histogram(err, bins[j]);
+                var stats = new DescriptiveStatistics(err);
+                form.WriteLine(stat + ": mean " + stats.Mean.ToString("e4") + ", std " + stats.StandardDeviation.ToString("e4") + ", min " + stats.Minimum.ToString("e4") + ", max " + stats.Maximum.ToString("e4"));
+                form.WriteLine(stat + " % count above 5%: " + (err.Count(e => e > 0.05) * 100.0 / err.Count()).ToString("N2"));
+                series[stat+" (n = "+hist.DataCount+")"] = new Tuple<Histogram, DescriptiveStatistics>(hist, stats);
+                j++;
+            }
+
+            ChartCounts(series);
         }
 
         static void ReadControlXL(string xlfile)
@@ -163,6 +204,13 @@ namespace ParseText
                 return;
             }
             form.WriteLine(data + " folder exists");
+
+            if (form.doCharts)
+            {
+                var manxl = Directory.GetFiles(data, "*.xlsm").FirstOrDefault(f => f.Contains("Manual"));
+                if (manxl != null) ReadManualXL(manxl);
+            }
+
             _currentsample = request[2];
 
             var outfilename = string.Format(_outfilename, string.Join(" ", request.Take(2)), request[2]) + ".xlsm";
@@ -226,6 +274,67 @@ namespace ParseText
         {
             "Blue", "Red", "Green", "Black", "Orange", "Pink", "Purple", "Brown", "Yellow"
         };
+
+        static void ChartCounts(Dictionary<string, Tuple<Histogram, DescriptiveStatistics>> series)
+        {
+            int j = 0;
+            foreach (var line in series.Keys)
+            {
+                var c = new Chart() { Size = new Size(1920, 1080) };
+                c.Titles.Add("Count vs Error for " + line);
+                c.Titles[0].Font = new Font("Arial", 14, FontStyle.Bold);
+
+                var a = new ChartArea("Lather");
+                a.AxisY.MajorGrid.LineColor = Color.LightGray;
+                a.AxisY.LabelStyle.Font = new Font("Arial", 14);
+                a.AxisY.Title = "Count";
+                a.AxisY.TitleFont = new Font("Arial", 14);
+                a.AxisX.Title = "Error = |manual-fit|/manual";
+                a.AxisX.TitleFont = new Font("Arial", 14);
+                a.AxisX.IsStartedFromZero = true;
+                a.AxisY.IsStartedFromZero = true;
+                a.AxisX.IsMarginVisible = false;
+                a.AxisX.MajorGrid.LineColor = Color.LightGray;
+                a.AxisX.LabelStyle.ForeColor = Color.Black;
+                a.AxisX.LabelStyle.Font = new Font("Arial", 14);
+                a.AxisX.IsLabelAutoFit = true;
+                a.AxisX.Minimum = 0;
+                c.ChartAreas.Add(a);
+
+                c.Legends.Add(new Legend("Legend")
+                {
+                    IsDockedInsideChartArea = true,
+                    DockedToChartArea = "Lather"
+                });
+
+                var n = 0;
+                var t = new Series(line)
+                {
+                    ChartType = SeriesChartType.Column,
+                    XValueType = ChartValueType.Double,
+                    YValueType = ChartValueType.Double,
+                    Color = Color.FromName(colors[n++]),
+                    Legend = "Legend"
+                };
+                var hist = series[line].Item1;
+                var stats = series[line].Item2;
+                for (int i=0; i<show[j]; i++)
+                {
+                    t.Points.AddXY(hist[i].UpperBound, hist[i].Count);
+                }
+                TextAnnotation ta = new TextAnnotation();
+                ta.Text = stats.Mean + " mean\n" + stats.StandardDeviation + " stdev\n";
+                c.Annotations.Add(ta);
+                c.Series.Add(t);
+                t.ChartArea = "Lather";
+
+                var chartpath = form.notoutset ? _data : form.outdir;
+                var filename = Path.Combine(chartpath, line.Split('(')[0]);
+                //form.WriteLine("saving chart " + filename);
+                c.SaveImage(filename + ".png", ChartImageFormat.Png);
+                j++;
+            }
+        }
 
         static void ChartSeries(string name, Dictionary<string, List<Reading>> series)
         {
@@ -388,6 +497,14 @@ namespace ParseText
 
                 if (form.doCharts)
                 {
+                    var t95fit = new double[] { chi2, N0.GetDouble(), ninf, TC.GetDouble(), (TC.GetDouble() * t95) };
+                    t95fit.Select((t, i) =>
+                    {
+                        var m = _t95man[can(file)][i];
+                        _t95err[i].Add(Math.Abs(m - t) / (m == 0 ? 1 : m));
+                        return 1;
+                    }).ToList();
+
                     Dictionary<string, List<Reading>> Series = new Dictionary<string, List<Reading>>();
                     Series["readings"] = setup.ToList();
                     if (N0.GetDouble() < 1000.0) Series["fit"] = fit.ToList();

@@ -99,6 +99,7 @@
             this.progress.FormattingEnabled = true;
             this.progress.Location = new System.Drawing.Point(430, 27);
             this.progress.Name = "progress";
+            this.progress.SelectionMode = System.Windows.Forms.SelectionMode.MultiExtended;
             this.progress.Size = new System.Drawing.Size(369, 238);
             this.progress.TabIndex = 5;
             // 
