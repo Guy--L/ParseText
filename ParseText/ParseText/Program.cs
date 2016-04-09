@@ -14,7 +14,6 @@ using System.Diagnostics;
 
 namespace ParseText
 {
-
     class Program
     {
         /// <summary>
@@ -167,23 +166,30 @@ namespace ParseText
         }
 
         private static string[] nLabels = new string[] { "n^2", "n0", "nInf", "tC", "t95" };
-        private static int[] bins = new int[] { 200, 10000000, 200, 200, 200 };
-        private static int[] show = new int[] { 20, 40, 20, 20, 20 }; 
+        private static int[] bins = new int[] { 200, 200, 200, 10000, 10000 };
+        private static int[] show = new int[] { 20, 20, 20, 20, 20 }; 
 
         public static void ChartHistograms()
         {
             Dictionary<string, Tuple<Histogram, DescriptiveStatistics>> series = new Dictionary<string, Tuple<Histogram, DescriptiveStatistics>>();
-
+            string[] dsc = new string[nLabels.Count()];
             int j = 0;
             foreach (var stat in nLabels)
             {
                 var err = _t95err[j];
                 var hist = new Histogram(err, bins[j]);
                 var stats = new DescriptiveStatistics(err);
-                form.WriteLine(stat + ": mean " + stats.Mean.ToString("e4") + ", std " + stats.StandardDeviation.ToString("e4") + ", min " + stats.Minimum.ToString("e4") + ", max " + stats.Maximum.ToString("e4"));
                 form.WriteLine(stat + " % count above 5%: " + (err.Count(e => e > 0.05) * 100.0 / err.Count()).ToString("N2"));
+                Debug.WriteLine(stat + " % count above 5%: " + (err.Count(e => e > 0.05) * 100.0 / err.Count()).ToString("N2"));
+                dsc[j] = stat + ": mean " + stats.Mean.ToString("e3") + ", std " + stats.StandardDeviation.ToString("e3") + ", min " + stats.Minimum.ToString("e3") + ", max " + stats.Maximum.ToString("e3");
                 series[stat+" (n = "+hist.DataCount+")"] = new Tuple<Histogram, DescriptiveStatistics>(hist, stats);
                 j++;
+            }
+
+            foreach(var sc in dsc)
+            {
+                form.WriteLine(sc);
+                Debug.WriteLine(sc);
             }
 
             ChartCounts(series);
@@ -369,7 +375,7 @@ namespace ParseText
             {
                 var t = new Series(line)
                 {
-                    ChartType = SeriesChartType.FastLine,
+                    ChartType = SeriesChartType.Line,
                     XValueType = ChartValueType.Double,
                     YValueType = ChartValueType.Double,
                     Color = Color.FromName(colors[n++]),
@@ -396,8 +402,8 @@ namespace ParseText
             var datalines = lines.Count() - firstline - 1;
             TestType testType = testmap[datalines];
 
-            //if (testType != TestType.Lather || can(file) != "AV")
-            //    return;
+            if (testType != TestType.Lather)
+                return;
 
             var f = Path.GetFileNameWithoutExtension(file);
             form.WriteLine(testType.ToString() + "\t" + can(file));
@@ -428,11 +434,19 @@ namespace ParseText
                 var maxidx = pair.First(d => d.val.normal == max).idx;
 
                 var minip = pair.FirstOrDefault(d => d.idx > maxidx && d.val.normal <= mid);
-                if (minip == null) return;
+                if (minip == null)
+                {
+                    form.WriteLine("no min index for " + _currentsample + " " + can(file));
+                    return;
+                }
                 var mini = minip.idx;
 
                 var maxip = pair.Skip(mini).FirstOrDefault(d => d.val.normal < ninf);
-                if (maxip == null) return;
+                if (maxip == null)
+                {
+                    form.WriteLine("no max index for " + _currentsample + " " + can(file));
+                    return;
+                }
                 var maxi = maxip.idx - 1;
 
                 while (maxi <= mini + 1)
@@ -441,7 +455,7 @@ namespace ParseText
                     maxi++;
                 }
 
-//                form.WriteLine("max: " + max + ", inf: "+ ninf + ", avg: "+ mid);
+                //                form.WriteLine("max: " + max + ", inf: "+ ninf + ", avg: "+ mid);
                 var n2fit = data.Skip(mini).Take(maxi - mini);
 
                 var y2fit = n2fit.Select(d => Math.Log(Math.Abs(d.normal - ninf))).ToArray();
@@ -460,11 +474,20 @@ namespace ParseText
                     model.AddDecisions(N0);
                     model.AddDecisions(TC);
                 }
+                var mind = data.Skip(mini).First();
+                var maxd = data.Skip(maxi + 1).First();
+                var note = false;
+                var tc = -1 / (p.Item2 == 0 ? 1 : p.Item2);
+                if (mind.time + 5 > maxd.time || mind.normal < maxd.normal || n0 > 10.0)
+                {
+                    n0 = 2.0;
+                    note = true;
+                }
 
                 N0.SetInitialValue(n0);
-                TC.SetInitialValue(-1 / p.Item2);
+                TC.SetInitialValue(tc);
 
-                n2fit = data.Skip(mini);
+                n2fit = data.Skip(mini).Where(t => t.normal > 0);
                 var cost = new SumTermBuilder(n2fit.Count());
 
                 n2fit.ForEach(d =>
@@ -481,6 +504,13 @@ namespace ParseText
                 //var solver = context.Solve(directive);
                 var solver = context.Solve();
                 var report = solver.GetReport();
+                if (note)
+                {
+                    var rpt = report.ToString();
+                    var lns = rpt.Split('\n');
+                    foreach (var ln in lns)
+                        form.WriteLine(ln);
+                }
                 var chi2 = model.Goals.First().ToDouble();
 
                 outrow.Cell(6).SetValue<double>(chi2);
@@ -490,31 +520,46 @@ namespace ParseText
                 outrow.Cell(10).SetValue<double>(TC.GetDouble() * t95);
 
                 var addedzero = (new List<Reading>() { new Reading(0, N0.GetDouble()) }).Concat(setup);
-                var fit = addedzero.Select(d => new Reading(d.time, N0.GetDouble() + (ninf - N0.GetDouble()) * (1 - Math.Exp(-d.time / TC.GetDouble()))));
 
                 //form.WriteLine("--> Chi2: " + chi2.ToString("F") + ", N0: " + N0.GetDouble().ToString("F") + ", TC: " + TC.GetDouble().ToString("F") + ", ninf: " + ninf.ToString("F"));
                 model.RemoveGoal(model.Goals.First());                              // remove goal for next model run       
 
                 if (form.doCharts)
                 {
+                    var xlv = _t95man[can(file)];
+                    var xlf = addedzero.Select(d => new Reading(d.time, xlv[1] + (xlv[2] - xlv[1]) * (1 - Math.Exp(-d.time / xlv[3]))));
+                    var fit = addedzero.Select(d => new Reading(d.time, N0.GetDouble() + (ninf - N0.GetDouble()) * (1 - Math.Exp(-d.time / TC.GetDouble()))));
                     var t95fit = new double[] { chi2, N0.GetDouble(), ninf, TC.GetDouble(), (TC.GetDouble() * t95) };
                     t95fit.Select((t, i) =>
                     {
                         var m = _t95man[can(file)][i];
-                        _t95err[i].Add(Math.Abs(m - t) / (m == 0 ? 1 : m));
+                        var e = Math.Abs(m - t) / (m == 0 ? 1 : m);
+                        if (e > 100000)
+                        {
+                            Debug.WriteLine("error: " + e.ToString("e5") + ", file: " + file + ", can: " + can(file) + ", i: " + i);
+                        }
+                        else if (!note)
+                            _t95err[i].Add(e);
                         return 1;
                     }).ToList();
 
                     Dictionary<string, List<Reading>> Series = new Dictionary<string, List<Reading>>();
                     Series["readings"] = setup.ToList();
                     if (N0.GetDouble() < 1000.0) Series["fit"] = fit.ToList();
+                    Series["xl"] = xlf.ToList();
                     Series["zero"] = new List<Reading>() { new Reading(data.Min(t => t.time), 0), new Reading(data.Max(t => t.time), 0) };
-                    var mind = data.Skip(mini).First();
-                    var maxd = data.Skip(maxi + 1).First();
                     Series["midnormal"] = new List<Reading>() { new Reading(mind.time, 1), new Reading(mind.time, -1) };
                     Series["subplateau"] = new List<Reading>() { new Reading(maxd.time, 1), new Reading(maxd.time, -1) };
+                    //Series["fitted"] = n2fit.ToList();
+                    //var begin = n2fit.First();
+                    //var nonzero = n2fit.First(t => t.normal > 0);
+                    //Series["fitted"] = new List<Reading>() {
+                    //    new Reading(begin.time, begin.normal),
+                    //    new Reading(nonzero.time, nonzero.normal),
+                    //    new Reading(n2fit.Last().time, nonzero.normal)
+                    //};
 
-                    var title = can(file) + " (chi2 = " + chi2.ToString("e3") + ")";
+                    var title = can(file) + " (chi2 = " + chi2.ToString("e3") + ")" + note;
                     ChartSeries(title, Series);
                 }
             }
