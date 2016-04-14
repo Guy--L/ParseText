@@ -2,19 +2,18 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Drawing;
 using System.Windows.Forms;
+using fm = System.Windows.Forms;
 using ClosedXML.Excel;
 using System.Configuration;
 using mn = MathNet.Numerics;
 using MathNet.Numerics.Statistics;
-using System.Windows.Forms.DataVisualization.Charting;
-using Microsoft.SolverFoundation.Services;
+using xl = Microsoft.Office.Interop.Excel;
 using System.Diagnostics;
 
 namespace ParseText
 {
-    class Program
+    partial class Program
     {
         /// <summary>
         /// Various types of tests in this Rheology lab
@@ -41,10 +40,6 @@ namespace ParseText
         private static string _outfilename = @"{0} Rheology Analysis v3 with SPTT Entry Macro (MACRO v4.1) {1}";
         private static string _outdirectory;
         private static string _currentsample;
-
-        private static SolverContext context;
-        private static Model model = null;
-        private static Decision N0, TC;
 
         private static Dictionary<string, double[]> _t95man = new Dictionary<string, double[]>();
         private static List<double>[] _t95err = new List<double>[5]
@@ -74,11 +69,11 @@ namespace ParseText
             testmap.Add(142, TestType.Lather);
             testmap.Add(417, TestType.Fract_Band);
 
-            Application.EnableVisualStyles();
-            Application.SetCompatibleTextRenderingDefault(false);
+            fm.Application.EnableVisualStyles();
+            fm.Application.SetCompatibleTextRenderingDefault(false);
 
             form = new Form1();
-            Application.Run(form);
+            fm.Application.Run(form);
         }
 
         /// <summary>
@@ -276,120 +271,7 @@ namespace ParseText
         private static int finaltake = 3;
         private static double t95 = -Math.Log(.05);
 
-        private static List<string> colors = new List<string>()
-        {
-            "Blue", "Red", "Green", "Black", "Orange", "Pink", "Purple", "Brown", "Yellow"
-        };
-
-        static void ChartCounts(Dictionary<string, Tuple<Histogram, DescriptiveStatistics>> series)
-        {
-            int j = 0;
-            foreach (var line in series.Keys)
-            {
-                var c = new Chart() { Size = new Size(1920, 1080) };
-                c.Titles.Add("Count vs Error for " + line);
-                c.Titles[0].Font = new Font("Arial", 14, FontStyle.Bold);
-
-                var a = new ChartArea("Lather");
-                a.AxisY.MajorGrid.LineColor = Color.LightGray;
-                a.AxisY.LabelStyle.Font = new Font("Arial", 14);
-                a.AxisY.Title = "Count";
-                a.AxisY.TitleFont = new Font("Arial", 14);
-                a.AxisX.Title = "Error = |manual-fit|/manual";
-                a.AxisX.TitleFont = new Font("Arial", 14);
-                a.AxisX.IsStartedFromZero = true;
-                a.AxisY.IsStartedFromZero = true;
-                a.AxisX.IsMarginVisible = false;
-                a.AxisX.MajorGrid.LineColor = Color.LightGray;
-                a.AxisX.LabelStyle.ForeColor = Color.Black;
-                a.AxisX.LabelStyle.Font = new Font("Arial", 14);
-                a.AxisX.IsLabelAutoFit = true;
-                a.AxisX.Minimum = 0;
-                c.ChartAreas.Add(a);
-
-                c.Legends.Add(new Legend("Legend")
-                {
-                    IsDockedInsideChartArea = true,
-                    DockedToChartArea = "Lather"
-                });
-
-                var n = 0;
-                var t = new Series(line)
-                {
-                    ChartType = SeriesChartType.Column,
-                    XValueType = ChartValueType.Double,
-                    YValueType = ChartValueType.Double,
-                    Color = Color.FromName(colors[n++]),
-                    Legend = "Legend"
-                };
-                var hist = series[line].Item1;
-                var stats = series[line].Item2;
-                for (int i=0; i<show[j]; i++)
-                {
-                    t.Points.AddXY(hist[i].UpperBound, hist[i].Count);
-                }
-                TextAnnotation ta = new TextAnnotation();
-                ta.Text = stats.Mean + " mean\n" + stats.StandardDeviation + " stdev\n";
-                c.Annotations.Add(ta);
-                c.Series.Add(t);
-                t.ChartArea = "Lather";
-
-                var chartpath = form.notoutset ? _data : form.outdir;
-                var filename = Path.Combine(chartpath, line.Split('(')[0]);
-                //form.WriteLine("saving chart " + filename);
-                c.SaveImage(filename + ".png", ChartImageFormat.Png);
-                j++;
-            }
-        }
-
-        static void ChartSeries(string name, Dictionary<string, List<Reading>> series)
-        {
-            var c = new Chart() { Size = new Size(1920, 1080) };
-            c.Titles.Add("Normal vs Time for " + name);
-            c.Titles[0].Font = new Font("Arial", 14, FontStyle.Bold);
-
-            var a = new ChartArea("Lather");
-            a.AxisY.MajorGrid.LineColor = Color.LightGray;
-            a.AxisY.LabelStyle.Font = new Font("Arial", 14);
-            a.AxisY.Title = "Normal";
-            a.AxisY.TitleFont = new Font("Arial", 14);
-            a.AxisX.Title = "Time";
-            a.AxisX.TitleFont = new Font("Arial", 14);
-            a.AxisX.IsStartedFromZero = true;
-            a.AxisY.IsStartedFromZero = true;
-            a.AxisX.IsMarginVisible = false;
-            a.AxisX.MajorGrid.LineColor = Color.LightGray;
-            a.AxisX.LabelStyle.ForeColor = Color.Black;
-            a.AxisX.LabelStyle.Font = new Font("Arial", 14);
-            a.AxisX.IsLabelAutoFit = true;
-            a.AxisX.Minimum = 0;
-            c.ChartAreas.Add(a);
-
-            c.Legends.Add(new Legend("Legend") {
-                IsDockedInsideChartArea = true,
-                DockedToChartArea = "Lather"
-            });
-
-            var n = 0;
-            foreach (var line in series.Keys)
-            {
-                var t = new Series(line)
-                {
-                    ChartType = SeriesChartType.Line,
-                    XValueType = ChartValueType.Double,
-                    YValueType = ChartValueType.Double,
-                    Color = Color.FromName(colors[n++]),
-                    Legend = "Legend"
-                };
-                series[line].Select(r => t.Points.AddXY(r.time, r.normal)).ToList();
-                c.Series.Add(t);
-                t.ChartArea = "Lather";
-            }
-            var chartpath = form.notoutset ? _data : form.outdir;
-            var filename = Path.Combine(chartpath, _currentsample + "_" + name.Split('(')[0]);
-            //form.WriteLine("saving chart " + filename);
-            c.SaveImage(filename + ".png", ChartImageFormat.Png);
-        }
+        private static xl.Application excel;
 
         //private static List<string> Issue3 = new List<string> {
         //    "G-0033f",
@@ -464,15 +346,13 @@ namespace ParseText
                 var n0 = Math.Exp(p.Item1) + ninf;
 
                 // Create the model
-                if (model == null)
+                if (excel == null)
                 {
-                    context = SolverContext.GetContext();
-                    model = context.CreateModel();
-                    // Add a decisions
-                    N0 = new Decision(Domain.Real, "n0");
-                    TC = new Decision(Domain.Real, "tc");
-                    model.AddDecisions(N0);
-                    model.AddDecisions(TC);
+                    excel = new xl.Application();
+                    var workbook = excel.Workbooks.Add(Type.Missing);
+                    //excel.RegisterXLL(pathToXll);
+                    //excel.ShowExcel();
+
                 }
                 var mind = data.Skip(mini).First();
                 var maxd = data.Skip(maxi + 1).First();
@@ -484,69 +364,42 @@ namespace ParseText
                     note = true;
                 }
 
-                N0.SetInitialValue(n0);
-                TC.SetInitialValue(tc);
-
                 n2fit = data.Skip(mini).Where(t => t.normal > 0);
-                var cost = new SumTermBuilder(n2fit.Count());
 
-                n2fit.ForEach(d =>
-                {
-                    Term r = N0 + (ninf - N0) * (1 - Model.Exp(-d.time / TC));
-                    r -= d.normal;
-                    r *= r;
-                    cost.Add(r);
-                });
+                //outrow.Cell(6).SetValue<double>(chi2);
+                //outrow.Cell(7).SetValue<double>(N0.GetDouble());
+                //outrow.Cell(8).SetValue<double>(ninf);
+                //outrow.Cell(9).SetValue<double>(TC.GetDouble());
+                //outrow.Cell(10).SetValue<double>(TC.GetDouble() * t95);
 
-                model.AddGoal("Chi2", GoalKind.Minimize, cost.ToTerm());            // add goal
-
-                //var directive = new CompactQuasiNewtonDirective();
-                //var solver = context.Solve(directive);
-                var solver = context.Solve();
-                var report = solver.GetReport();
-                if (note)
-                {
-                    var rpt = report.ToString();
-                    var lns = rpt.Split('\n');
-                    foreach (var ln in lns)
-                        form.WriteLine(ln);
-                }
-                var chi2 = model.Goals.First().ToDouble();
-
-                outrow.Cell(6).SetValue<double>(chi2);
-                outrow.Cell(7).SetValue<double>(N0.GetDouble());
-                outrow.Cell(8).SetValue<double>(ninf);
-                outrow.Cell(9).SetValue<double>(TC.GetDouble());
-                outrow.Cell(10).SetValue<double>(TC.GetDouble() * t95);
-
-                var addedzero = (new List<Reading>() { new Reading(0, N0.GetDouble()) }).Concat(setup);
+                //var addedzero = (new List<Reading>() { new Reading(0, N0.GetDouble()) }).Concat(setup);
 
                 //form.WriteLine("--> Chi2: " + chi2.ToString("F") + ", N0: " + N0.GetDouble().ToString("F") + ", TC: " + TC.GetDouble().ToString("F") + ", ninf: " + ninf.ToString("F"));
-                model.RemoveGoal(model.Goals.First());                              // remove goal for next model run       
+                //model.RemoveGoal(model.Goals.First());                              // remove goal for next model run       
 
                 if (form.doCharts)
                 {
                     var xlv = _t95man[can(file)];
-                    var xlf = addedzero.Select(d => new Reading(d.time, xlv[1] + (xlv[2] - xlv[1]) * (1 - Math.Exp(-d.time / xlv[3]))));
-                    var fit = addedzero.Select(d => new Reading(d.time, N0.GetDouble() + (ninf - N0.GetDouble()) * (1 - Math.Exp(-d.time / TC.GetDouble()))));
-                    var t95fit = new double[] { chi2, N0.GetDouble(), ninf, TC.GetDouble(), (TC.GetDouble() * t95) };
-                    t95fit.Select((t, i) =>
-                    {
-                        var m = _t95man[can(file)][i];
-                        var e = Math.Abs(m - t) / (m == 0 ? 1 : m);
-                        if (e > 100000)
-                        {
-                            Debug.WriteLine("error: " + e.ToString("e5") + ", file: " + file + ", can: " + can(file) + ", i: " + i);
-                        }
-                        else if (!note)
-                            _t95err[i].Add(e);
-                        return 1;
-                    }).ToList();
+                    //var xlf = addedzero.Select(d => new Reading(d.time, xlv[1] + (xlv[2] - xlv[1]) * (1 - Math.Exp(-d.time / xlv[3]))));
+                    //var fit = addedzero.Select(d => new Reading(d.time, N0.GetDouble() + (ninf - N0.GetDouble()) * (1 - Math.Exp(-d.time / TC.GetDouble()))));
+                    //var t95fit = new double[] { chi2, N0.GetDouble(), ninf, TC.GetDouble(), (TC.GetDouble() * t95) };
+                    //t95fit.Select((t, i) =>
+                    //{
+                    //    var m = _t95man[can(file)][i];
+                    //    var e = Math.Abs(m - t) / (m == 0 ? 1 : m);
+                    //    if (e > 100000)
+                    //    {
+                    //        Debug.WriteLine("error: " + e.ToString("e5") + ", file: " + file + ", can: " + can(file) + ", i: " + i);
+                    //    }
+                    //    else if (!note)
+                    //        _t95err[i].Add(e);
+                    //    return 1;
+                    //}).ToList();
 
                     Dictionary<string, List<Reading>> Series = new Dictionary<string, List<Reading>>();
                     Series["readings"] = setup.ToList();
-                    if (N0.GetDouble() < 1000.0) Series["fit"] = fit.ToList();
-                    Series["xl"] = xlf.ToList();
+                    //if (N0.GetDouble() < 1000.0) Series["fit"] = fit.ToList();
+                    //Series["xl"] = xlf.ToList();
                     Series["zero"] = new List<Reading>() { new Reading(data.Min(t => t.time), 0), new Reading(data.Max(t => t.time), 0) };
                     Series["midnormal"] = new List<Reading>() { new Reading(mind.time, 1), new Reading(mind.time, -1) };
                     Series["subplateau"] = new List<Reading>() { new Reading(maxd.time, 1), new Reading(maxd.time, -1) };
@@ -559,8 +412,8 @@ namespace ParseText
                     //    new Reading(n2fit.Last().time, nonzero.normal)
                     //};
 
-                    var title = can(file) + " (chi2 = " + chi2.ToString("e3") + ")" + note;
-                    ChartSeries(title, Series);
+                    //var title = can(file) + " (chi2 = " + chi2.ToString("e3") + ")" + note;
+                    //ChartSeries(title, Series);
                 }
             }
             if (testType == TestType.Oscillation)
