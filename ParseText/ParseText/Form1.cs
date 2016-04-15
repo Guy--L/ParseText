@@ -55,6 +55,7 @@ namespace ParseText
             if (doCharts)
                 Program.ChartHistograms();
 
+            Program.Release();
             WriteLine("\n");
             WriteLine("Done");
             button3.BackColor = oldcolor;

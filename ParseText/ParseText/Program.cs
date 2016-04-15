@@ -271,7 +271,36 @@ namespace ParseText
         private static int finaltake = 3;
         private static double t95 = -Math.Log(.05);
 
+        public static void Release()
+        {
+            releaseObject(rg);
+            releaseObject(ws);
+            releaseObject(wb);
+            releaseObject(excel);
+        }
+
         private static xl.Application excel;
+        private static xl.Workbook wb;
+        private static xl.Worksheet ws;
+        private static xl.Range rg;
+
+        private static void releaseObject(object obj)
+        {
+            try
+            {
+                System.Runtime.InteropServices.Marshal.ReleaseComObject(obj);
+                obj = null;
+            }
+            catch (Exception ex)
+            {
+                obj = null;
+                MessageBox.Show("Unable to release the Object " + ex.ToString());
+            }
+            finally
+            {
+                GC.Collect();
+            }
+        }
 
         //private static List<string> Issue3 = new List<string> {
         //    "G-0033f",
@@ -283,9 +312,6 @@ namespace ParseText
             var lines = File.ReadAllLines(file);
             var datalines = lines.Count() - firstline - 1;
             TestType testType = testmap[datalines];
-
-            if (testType != TestType.Lather)
-                return;
 
             var f = Path.GetFileNameWithoutExtension(file);
             form.WriteLine(testType.ToString() + "\t" + can(file));
@@ -303,74 +329,53 @@ namespace ParseText
             }
             if (testType == TestType.Lather)
             {
-                var setup = lines.Skip(firstline).Take(rowmap[(int)TestType.Lather]).Select(s => new Reading(s));
-                var data = setup.Where(d => d.rate >= 99.0 && d.rate <= 101.0).ToList();
+                int rows = rowmap[(int)TestType.Lather];
+                object[,] arr = new object[rows, 4];
 
-                var max = data.Max(d => d.normal);
-
-                var ninf = setup.Where(d => d.time > 20).Average(d => d.normal);
-                var mid = (max + ninf) / 2;
-
-                var pair = data.Select((v, i) => new { val = v.cutoff(mid), idx = i });
-                max = pair.Max(d => d.val.normal);
-                var maxidx = pair.First(d => d.val.normal == max).idx;
-
-                var minip = pair.FirstOrDefault(d => d.idx > maxidx && d.val.normal <= mid);
-                if (minip == null)
+                var setup = lines.Skip(firstline).Take(rowmap[(int)TestType.Lather]).Select((s, i) =>
                 {
-                    form.WriteLine("no min index for " + _currentsample + " " + can(file));
-                    return;
-                }
-                var mini = minip.idx;
+                    var a = s.Split('\t');
+                    if (a.Length < 4)
+                    {
+                        Debug.WriteLine("no data at i: " + i);
+                        return 0;
+                    }
+                    arr[i, 0] = double.Parse(a[0]);
+                    arr[i, 1] = double.Parse(a[1]);
+                    arr[i, 2] = double.Parse(a[2]);
+                    arr[i, 3] = double.Parse(a[3]);
+                    return 1;
+                }).ToList();
 
-                var maxip = pair.Skip(mini).FirstOrDefault(d => d.val.normal < ninf);
-                if (maxip == null)
-                {
-                    form.WriteLine("no max index for " + _currentsample + " " + can(file));
-                    return;
-                }
-                var maxi = maxip.idx - 1;
-
-                while (maxi <= mini + 1)
-                {
-                    //form.Write(".");
-                    maxi++;
-                }
-
-                //                form.WriteLine("max: " + max + ", inf: "+ ninf + ", avg: "+ mid);
-                var n2fit = data.Skip(mini).Take(maxi - mini);
-
-                var y2fit = n2fit.Select(d => Math.Log(Math.Abs(d.normal - ninf))).ToArray();
-                var x2fit = n2fit.Select(d => d.time).ToArray();
-                Tuple<double, double> p = mn.Fit.Line(x2fit, y2fit);   // item1 intercept, item2 slope
-                var n0 = Math.Exp(p.Item1) + ninf;
-
-                // Create the model
                 if (excel == null)
                 {
                     excel = new xl.Application();
-                    var workbook = excel.Workbooks.Add(Type.Missing);
-                    //excel.RegisterXLL(pathToXll);
-                    //excel.ShowExcel();
-
-                }
-                var mind = data.Skip(mini).First();
-                var maxd = data.Skip(maxi + 1).First();
-                var note = false;
-                var tc = -1 / (p.Item2 == 0 ? 1 : p.Item2);
-                if (mind.time + 5 > maxd.time || mind.normal < maxd.normal || n0 > 10.0)
-                {
-                    n0 = 2.0;
-                    note = true;
+                    var template = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Solver.xlsm");
+                    wb = excel.Workbooks.Open(template);
+                    ws = wb.Sheets["Automation"];
+                    ws.Activate();
+                    xl.Range start = ws.Cells[4, 2];
+                    xl.Range end = ws.Cells[3 + rows, 5];
+                    rg = ws.get_Range(start, end);
                 }
 
-                n2fit = data.Skip(mini).Where(t => t.normal > 0);
+                rg.Value = arr;
+                ws.Calculate();
 
-                //outrow.Cell(6).SetValue<double>(chi2);
-                //outrow.Cell(7).SetValue<double>(N0.GetDouble());
-                //outrow.Cell(8).SetValue<double>(ninf);
-                //outrow.Cell(9).SetValue<double>(TC.GetDouble());
-                //outrow.Cell(10).SetValue<double>(TC.GetDouble() * t95);
+                excel.Run("Calculate");
+
+                double chi2 = ws.Cells[3, 13].Value;
+                double N0 = ws.Cells[4, 13].Value;
+                double Ninf = ws.Cells[5, 13].Value;
+                double TC = ws.Cells[6, 13].Value;
+
+                var tstout = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "SolverOut.xlsm");
+
+                outrow.Cell(6).SetValue(chi2);
+                outrow.Cell(7).SetValue(N0);
+                outrow.Cell(8).SetValue(Ninf);
+                outrow.Cell(9).SetValue(TC);
+                outrow.Cell(10).SetValue(TC * t95);
 
                 //var addedzero = (new List<Reading>() { new Reading(0, N0.GetDouble()) }).Concat(setup);
 
@@ -382,39 +387,15 @@ namespace ParseText
                     var xlv = _t95man[can(file)];
                     //var xlf = addedzero.Select(d => new Reading(d.time, xlv[1] + (xlv[2] - xlv[1]) * (1 - Math.Exp(-d.time / xlv[3]))));
                     //var fit = addedzero.Select(d => new Reading(d.time, N0.GetDouble() + (ninf - N0.GetDouble()) * (1 - Math.Exp(-d.time / TC.GetDouble()))));
-                    //var t95fit = new double[] { chi2, N0.GetDouble(), ninf, TC.GetDouble(), (TC.GetDouble() * t95) };
-                    //t95fit.Select((t, i) =>
-                    //{
-                    //    var m = _t95man[can(file)][i];
-                    //    var e = Math.Abs(m - t) / (m == 0 ? 1 : m);
-                    //    if (e > 100000)
-                    //    {
-                    //        Debug.WriteLine("error: " + e.ToString("e5") + ", file: " + file + ", can: " + can(file) + ", i: " + i);
-                    //    }
-                    //    else if (!note)
-                    //        _t95err[i].Add(e);
-                    //    return 1;
-                    //}).ToList();
-
-                    Dictionary<string, List<Reading>> Series = new Dictionary<string, List<Reading>>();
-                    Series["readings"] = setup.ToList();
-                    //if (N0.GetDouble() < 1000.0) Series["fit"] = fit.ToList();
-                    //Series["xl"] = xlf.ToList();
-                    Series["zero"] = new List<Reading>() { new Reading(data.Min(t => t.time), 0), new Reading(data.Max(t => t.time), 0) };
-                    Series["midnormal"] = new List<Reading>() { new Reading(mind.time, 1), new Reading(mind.time, -1) };
-                    Series["subplateau"] = new List<Reading>() { new Reading(maxd.time, 1), new Reading(maxd.time, -1) };
-                    //Series["fitted"] = n2fit.ToList();
-                    //var begin = n2fit.First();
-                    //var nonzero = n2fit.First(t => t.normal > 0);
-                    //Series["fitted"] = new List<Reading>() {
-                    //    new Reading(begin.time, begin.normal),
-                    //    new Reading(nonzero.time, nonzero.normal),
-                    //    new Reading(n2fit.Last().time, nonzero.normal)
-                    //};
-
-                    //var title = can(file) + " (chi2 = " + chi2.ToString("e3") + ")" + note;
-                    //ChartSeries(title, Series);
-                }
+                    var t95fit = new double[] { chi2, N0, Ninf, TC, TC * t95 };
+                    t95fit.Select((t, i) =>
+                    {
+                        var m = _t95man[can(file)][i];
+                        var e = Math.Abs(m - t) / (m == 0 ? 1 : m);
+                        _t95err[i].Add(e);
+                        return 1;
+                        }).ToList();
+                    }
             }
             if (testType == TestType.Oscillation)
             {
