@@ -35,11 +35,11 @@
             this.button2 = new System.Windows.Forms.Button();
             this.label1 = new System.Windows.Forms.Label();
             this.folderBrowser = new System.Windows.Forms.FolderBrowserDialog();
-            this.progress = new System.Windows.Forms.ListBox();
             this.progressLabel = new System.Windows.Forms.Label();
-            this.graphsOn = new System.Windows.Forms.CheckBox();
+            this.readManual = new System.Windows.Forms.CheckBox();
             this.button3 = new System.Windows.Forms.Button();
             this.label2 = new System.Windows.Forms.Label();
+            this.progress = new System.Windows.Forms.TextBox();
             this.SuspendLayout();
             // 
             // button1
@@ -91,18 +91,6 @@
             this.label1.Text = "leave blank to output to respective directories";
             this.label1.Click += new System.EventHandler(this.label1_Click);
             // 
-            // progress
-            // 
-            this.progress.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
-            | System.Windows.Forms.AnchorStyles.Left) 
-            | System.Windows.Forms.AnchorStyles.Right)));
-            this.progress.FormattingEnabled = true;
-            this.progress.Location = new System.Drawing.Point(430, 27);
-            this.progress.Name = "progress";
-            this.progress.SelectionMode = System.Windows.Forms.SelectionMode.MultiExtended;
-            this.progress.Size = new System.Drawing.Size(369, 238);
-            this.progress.TabIndex = 5;
-            // 
             // progressLabel
             // 
             this.progressLabel.AutoSize = true;
@@ -112,15 +100,15 @@
             this.progressLabel.TabIndex = 6;
             this.progressLabel.Text = "Progress";
             // 
-            // graphsOn
+            // readManual
             // 
-            this.graphsOn.AutoSize = true;
-            this.graphsOn.Location = new System.Drawing.Point(134, 197);
-            this.graphsOn.Name = "graphsOn";
-            this.graphsOn.Size = new System.Drawing.Size(136, 17);
-            this.graphsOn.TabIndex = 7;
-            this.graphsOn.Text = "Generate Charts for t95";
-            this.graphsOn.UseVisualStyleBackColor = true;
+            this.readManual.AutoSize = true;
+            this.readManual.Location = new System.Drawing.Point(134, 197);
+            this.readManual.Name = "readManual";
+            this.readManual.Size = new System.Drawing.Size(166, 17);
+            this.readManual.TabIndex = 7;
+            this.readManual.Text = "Compare with Manual Results";
+            this.readManual.UseVisualStyleBackColor = true;
             // 
             // button3
             // 
@@ -143,16 +131,24 @@
             this.label2.TabIndex = 9;
             this.label2.Text = "double click to remove input directories";
             // 
+            // progress
+            // 
+            this.progress.Location = new System.Drawing.Point(434, 24);
+            this.progress.Multiline = true;
+            this.progress.Name = "progress";
+            this.progress.Size = new System.Drawing.Size(366, 235);
+            this.progress.TabIndex = 10;
+            // 
             // Form1
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(812, 278);
+            this.Controls.Add(this.progress);
             this.Controls.Add(this.label2);
             this.Controls.Add(this.button3);
-            this.Controls.Add(this.graphsOn);
+            this.Controls.Add(this.readManual);
             this.Controls.Add(this.progressLabel);
-            this.Controls.Add(this.progress);
             this.Controls.Add(this.label1);
             this.Controls.Add(this.button2);
             this.Controls.Add(this.output);
@@ -176,10 +172,10 @@
         private System.Windows.Forms.Button button2;
         private System.Windows.Forms.Label label1;
         private System.Windows.Forms.FolderBrowserDialog folderBrowser;
-        private System.Windows.Forms.ListBox progress;
         private System.Windows.Forms.Label progressLabel;
-        private System.Windows.Forms.CheckBox graphsOn;
+        private System.Windows.Forms.CheckBox readManual;
         private System.Windows.Forms.Button button3;
         private System.Windows.Forms.Label label2;
+        private System.Windows.Forms.TextBox progress;
     }
 }

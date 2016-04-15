@@ -6,7 +6,6 @@ using System.Windows.Forms;
 using fm = System.Windows.Forms;
 using ClosedXML.Excel;
 using System.Configuration;
-using mn = MathNet.Numerics;
 using MathNet.Numerics.Statistics;
 using xl = Microsoft.Office.Interop.Excel;
 using System.Diagnostics;
@@ -42,7 +41,7 @@ namespace ParseText
         private static string _currentsample;
 
         private static Dictionary<string, double[]> _t95man = new Dictionary<string, double[]>();
-        private static List<double>[] _t95err = new List<double>[5]
+        public static List<double>[] _t95err = new List<double>[5]
         {
             new List<double>(),
             new List<double>(),
@@ -160,36 +159,6 @@ namespace ParseText
             }
         }
 
-        private static string[] nLabels = new string[] { "n^2", "n0", "nInf", "tC", "t95" };
-        private static int[] bins = new int[] { 200, 200, 200, 10000, 10000 };
-        private static int[] show = new int[] { 20, 20, 20, 20, 20 }; 
-
-        public static void ChartHistograms()
-        {
-            Dictionary<string, Tuple<Histogram, DescriptiveStatistics>> series = new Dictionary<string, Tuple<Histogram, DescriptiveStatistics>>();
-            string[] dsc = new string[nLabels.Count()];
-            int j = 0;
-            foreach (var stat in nLabels)
-            {
-                var err = _t95err[j];
-                var hist = new Histogram(err, bins[j]);
-                var stats = new DescriptiveStatistics(err);
-                form.WriteLine(stat + " % count above 5%: " + (err.Count(e => e > 0.05) * 100.0 / err.Count()).ToString("N2"));
-                Debug.WriteLine(stat + " % count above 5%: " + (err.Count(e => e > 0.05) * 100.0 / err.Count()).ToString("N2"));
-                dsc[j] = stat + ": mean " + stats.Mean.ToString("e3") + ", std " + stats.StandardDeviation.ToString("e3") + ", min " + stats.Minimum.ToString("e3") + ", max " + stats.Maximum.ToString("e3");
-                series[stat+" (n = "+hist.DataCount+")"] = new Tuple<Histogram, DescriptiveStatistics>(hist, stats);
-                j++;
-            }
-
-            foreach(var sc in dsc)
-            {
-                form.WriteLine(sc);
-                Debug.WriteLine(sc);
-            }
-
-            ChartCounts(series);
-        }
-
         static void ReadControlXL(string xlfile)
         {
             var inxl = new XLWorkbook(xlfile);
@@ -206,10 +175,14 @@ namespace ParseText
             }
             form.WriteLine(data + " folder exists");
 
-            if (form.doCharts)
+            if (form.doCompare)
             {
                 var manxl = Directory.GetFiles(data, "*.xlsm").FirstOrDefault(f => f.Contains("Manual"));
                 if (manxl != null) ReadManualXL(manxl);
+                else {
+                    form.WriteLine("No manual files to read for comparison");
+                    form.doCompare = false;
+                }
             }
 
             _currentsample = request[2];
@@ -382,7 +355,7 @@ namespace ParseText
                 //form.WriteLine("--> Chi2: " + chi2.ToString("F") + ", N0: " + N0.GetDouble().ToString("F") + ", TC: " + TC.GetDouble().ToString("F") + ", ninf: " + ninf.ToString("F"));
                 //model.RemoveGoal(model.Goals.First());                              // remove goal for next model run       
 
-                if (form.doCharts)
+                if (form.doCompare)
                 {
                     var xlv = _t95man[can(file)];
                     //var xlf = addedzero.Select(d => new Reading(d.time, xlv[1] + (xlv[2] - xlv[1]) * (1 - Math.Exp(-d.time / xlv[3]))));

@@ -4,12 +4,14 @@ using System.Data;
 using System.Drawing;
 using System.Linq;
 using System.Windows.Forms;
+using System.Diagnostics;
+using MathNet.Numerics.Statistics;
 
 namespace ParseText
 {
     public partial class Form1 : Form
     {
-        public bool doCharts { get { return graphsOn.Checked; } }
+        public bool doCompare { get { return readManual.Checked; } set { readManual.Checked = value; readManual.Refresh(); }}
         public bool notoutset { get { return string.IsNullOrWhiteSpace(output.Text); } }
         public string outdir { get { return output.Text; } }
 
@@ -23,28 +25,19 @@ namespace ParseText
             output.Text = "";
         }
 
-        public void Write(string s)
-        {
-            var list = progress.Items;
-            var last = list[list.Count - 1] + s;
-            list[list.Count - 1] = last;
-        }
-
         public void WriteLine(string s)
         {
-            progress.Items.Add(s);
-            //progress.AutoScrollOffset = new Point(0, progress.PreferredHeight - progress.Height);
-            
-            progress.Refresh();
-            progress.TopIndex = progress.Items.Count - 1;
+            progress.WriteLine(s);
         }
+
+        private static string[] nLabels = new string[] { "n^2", "n0", "nInf", "tC", "t95" };
 
         private void button3_Click(object sender, EventArgs e)
         {
             var oldcolor = button3.BackColor;
             button3.BackColor = Color.Green;
             button3.Enabled = false;
-            progress.Items.Clear();
+            progress.Clear();
 
             foreach (var s in inputs.Items)
             {
@@ -52,11 +45,18 @@ namespace ParseText
                 WriteLine(file);
                 Program.ControlXLInDir(file);
             }
-            if (doCharts)
-                Program.ChartHistograms();
 
-            Program.Release();
-            WriteLine("\n");
+            if (doCompare)
+            {
+                var j = 0;
+                foreach (var stat in nLabels)
+                {
+                    var err = Program._t95err[j];
+                    WriteLine(stat + " % count above 5%: " + (err.Count(q => q > 0.05) * 100.0 / err.Count()).ToString("N2"));
+                    Debug.WriteLine(stat + " % count above 5%: " + (err.Count(q => q > 0.05) * 100.0 / err.Count()).ToString("N2"));
+                    j++;
+                }
+            }
             WriteLine("Done");
             button3.BackColor = oldcolor;
             button3.Enabled = true;
@@ -100,6 +100,7 @@ namespace ParseText
             Properties.Settings.Default["indirectories"] = ins;
             Properties.Settings.Default["outdirectory"] = output.Text;
             Properties.Settings.Default.Save();
+            Program.Release();
         }
 
         private void inputs_MouseDoubleClick(object sender, MouseEventArgs e)
@@ -115,6 +116,17 @@ namespace ParseText
         {
             bool exists = Directory.Exists(output.Text);
             if (!exists) Directory.CreateDirectory(output.Text);
+        }
+    }
+
+    public static class WinFormsExtensions
+    {
+        public static void WriteLine(this TextBox source, string value)
+        {
+            if (source.Text.Length == 0)
+                source.Text = value;
+            else
+                source.AppendText("\r\n" + value);
         }
     }
 }
