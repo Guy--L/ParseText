@@ -44,23 +44,31 @@ namespace ParseText
                 var file = s as string;
                 WriteLine(file);
                 Program.ControlXLInDir(file);
+                WriteLine("input " + s + " processed");
             }
 
             if (doCompare)
             {
-                var j = 0;
-                foreach (var stat in nLabels)
-                {
-                    var err = Program._t95err[j];
-                    WriteLine(stat + " % count above 5%: " + (err.Count(q => q > 0.05) * 100.0 / err.Count()).ToString("N2"));
-                    Debug.WriteLine(stat + " % count above 5%: " + (err.Count(q => q > 0.05) * 100.0 / err.Count()).ToString("N2"));
-                    j++;
-                }
+                reportErrors();
             }
             WriteLine("Done");
             button3.BackColor = oldcolor;
             button3.Enabled = true;
         }
+
+        public void reportErrors()
+        {
+            WriteLine("% of results over 5% difference from manual:");
+            WriteLine(string.Join("\t", nLabels.Select(s => s).ToArray()));
+            WriteLine(string.Join("\t", nLabels.Select((s, i) =>
+            {
+                var err = Program._t95err[i];
+                //Program._t95err[i].Clear();
+                return (err.Count(q => q > 0.05) * 100.0 / err.Count()).ToString("N2");
+            })));
+            nLabels.Select((s, i) => { Program._t95err[i].Clear(); return 1; }).ToList();
+        }
+
 
         private void button1_Click(object sender, EventArgs e)
         {

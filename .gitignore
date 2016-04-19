@@ -37,6 +37,7 @@ mes/Resources/BuildDate.txt
 BuildDate.txt
 app_data/*
 TestData/*
+TestBed - Copy/*
 TestBed/*
 results/*
 Issues/*

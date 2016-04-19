@@ -8,6 +8,7 @@ using ClosedXML.Excel;
 using System.Configuration;
 using MathNet.Numerics.Statistics;
 using xl = Microsoft.Office.Interop.Excel;
+using System.Runtime.InteropServices;
 using System.Diagnostics;
 
 namespace ParseText
@@ -235,6 +236,10 @@ namespace ParseText
             }
 
             outxl.SaveAs(outfile);
+
+            if (form.doCompare)
+                form.reportErrors();
+
             //form.WriteLine("saved as " + outfilename);
         }
 
@@ -247,21 +252,36 @@ namespace ParseText
         public static void Release()
         {
             releaseObject(rg);
+            releaseObject(start);
+            releaseObject(end);
             releaseObject(ws);
+            if (wb != null) wb.Close(true, Type.Missing, Type.Missing);
             releaseObject(wb);
+            releaseObject(wbs);
+            if (excel != null)
+            {
+                excel.Application.Quit();
+                excel.Quit();
+            }
             releaseObject(excel);
         }
 
         private static xl.Application excel;
+        private static xl.Workbooks wbs;
         private static xl.Workbook wb;
         private static xl.Worksheet ws;
+        private static xl.Range start;
+        private static xl.Range end;
         private static xl.Range rg;
 
         private static void releaseObject(object obj)
         {
+            if (obj == null)
+                return;
+
             try
             {
-                System.Runtime.InteropServices.Marshal.ReleaseComObject(obj);
+                Marshal.ReleaseComObject(obj);
                 obj = null;
             }
             catch (Exception ex)
@@ -324,11 +344,12 @@ namespace ParseText
                 {
                     excel = new xl.Application();
                     var template = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Solver.xlsm");
-                    wb = excel.Workbooks.Open(template);
+                    wbs = excel.Workbooks;
+                    wb = wbs.Open(template);
                     ws = wb.Sheets["Automation"];
                     ws.Activate();
-                    xl.Range start = ws.Cells[4, 2];
-                    xl.Range end = ws.Cells[3 + rows, 5];
+                    start = ws.Cells[4, 2];
+                    end = ws.Cells[3 + rows, 5];
                     rg = ws.get_Range(start, end);
                 }
 
