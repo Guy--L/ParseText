@@ -160,6 +160,7 @@ namespace ParseText
             }
         }
 
+        static string outpath = "";
         static void ReadControlXL(string xlfile)
         {
             var inxl = new XLWorkbook(xlfile);
@@ -189,7 +190,7 @@ namespace ParseText
             _currentsample = request[2];
 
             var outfilename = string.Format(_outfilename, string.Join(" ", request.Take(2)), request[2]) + ".xlsm";
-            var outpath = form.notoutset ? data : form.outdir;
+            outpath = form.notoutset ? data : form.outdir;
             var outfile = Path.Combine(outpath, outfilename);
 
             //form.WriteLine("writing to " + outfile);
@@ -300,6 +301,8 @@ namespace ParseText
         //    "L-0058f"
         //};
 
+        static bool first = true;
+
         static void ReadFile(string file, IXLRow outrow)
         {
             var lines = File.ReadAllLines(file);
@@ -379,12 +382,14 @@ namespace ParseText
                 var solveCode = ws.Cells[12, 13].Value;
 
                 form.WriteLine("Solve result --> " + solveCode);
-                if (solveCode == 9.0)
+                if (solveCode == 9.0 && first)
                 {
+                    first = false;
+                    var tstout = Path.Combine(outpath, "SolverOut.xlsm");
+                    ws.SaveAs(tstout);
+
                     ws.Cells[3, 13].Value = 0.1;
                 }
-
-                //var tstout = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "SolverOut.xlsm");
 
                 outrow.Cell(6).SetValue(chi2);
                 outrow.Cell(7).SetValue(N0);
