@@ -368,7 +368,7 @@ namespace ParseText
 
                 form.WriteLine("after recalculation");
                 form.WriteLine("solve  n^2\tn0\tnInf\tTC");
-                form.WriteLine("before "+chi2.ToString("N2") + "\t" + N0.ToString("N2") + "\t\t" + Ninf.ToString("N2") + "\t\t" + TC.ToString("N2"));
+                form.WriteLine("before "+chi2.ToString("N2") + "\t" + N0.ToString("N2") + "\t" + Ninf.ToString("N2") + "\t" + TC.ToString("N2"));
 
                 excel.Run("RunSolver");
 
@@ -377,7 +377,7 @@ namespace ParseText
                 Ninf = ws.Cells[5, 13].Value;
                 TC = ws.Cells[6, 13].Value;
 
-                form.WriteLine("after  " + chi2.ToString("N2") + "\t" + N0.ToString("N2") + "\t\t" + Ninf.ToString("N2") + "\t\t" + TC.ToString("N2"));
+                form.WriteLine("after  " + chi2.ToString("N2") + "\t" + N0.ToString("N2") + "\t" + Ninf.ToString("N2") + "\t" + TC.ToString("N2"));
 
                 var solveCode = ws.Cells[12, 13].Value;
 
@@ -385,10 +385,8 @@ namespace ParseText
                 if (solveCode == 9.0 && first)
                 {
                     first = false;
-                    var tstout = Path.Combine(outpath, "SolverOut.xlsm");
+                    var tstout = Path.Combine(outpath, "SolverErr.xlsm");
                     ws.SaveAs(tstout);
-
-                    ws.Cells[3, 13].Value = 0.1;
                 }
 
                 outrow.Cell(6).SetValue(chi2);
