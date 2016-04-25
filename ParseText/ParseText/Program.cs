@@ -351,19 +351,40 @@ namespace ParseText
                     start = ws.Cells[4, 2];
                     end = ws.Cells[3 + rows, 5];
                     rg = ws.get_Range(start, end);
+                    var rc = excel.Run("CheckSolver");
+                    form.WriteLine("Solver checks out? " + rc);
                 }
 
                 rg.Value = arr;
                 ws.Calculate();
-
-                excel.Run("Calculate");
 
                 double chi2 = ws.Cells[3, 13].Value;
                 double N0 = ws.Cells[4, 13].Value;
                 double Ninf = ws.Cells[5, 13].Value;
                 double TC = ws.Cells[6, 13].Value;
 
-                var tstout = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "SolverOut.xlsm");
+                form.WriteLine("after recalculation");
+                form.WriteLine("solve  n^2\tn0\tnInf\tTC");
+                form.WriteLine("before "+chi2.ToString("N2") + "\t" + N0.ToString("N2") + "\t\t" + Ninf.ToString("N2") + "\t\t" + TC.ToString("N2"));
+
+                excel.Run("RunSolver");
+
+                chi2 = ws.Cells[3, 13].Value;
+                N0 = ws.Cells[4, 13].Value;
+                Ninf = ws.Cells[5, 13].Value;
+                TC = ws.Cells[6, 13].Value;
+
+                form.WriteLine("after  " + chi2.ToString("N2") + "\t" + N0.ToString("N2") + "\t\t" + Ninf.ToString("N2") + "\t\t" + TC.ToString("N2"));
+
+                var solveCode = ws.Cells[12, 13].Value;
+
+                form.WriteLine("Solve result --> " + solveCode);
+                if (solveCode == 9.0)
+                {
+                    ws.Cells[3, 13].Value = 0.1;
+                }
+
+                //var tstout = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "SolverOut.xlsm");
 
                 outrow.Cell(6).SetValue(chi2);
                 outrow.Cell(7).SetValue(N0);
@@ -373,7 +394,6 @@ namespace ParseText
 
                 //var addedzero = (new List<Reading>() { new Reading(0, N0.GetDouble()) }).Concat(setup);
 
-                //form.WriteLine("--> Chi2: " + chi2.ToString("F") + ", N0: " + N0.GetDouble().ToString("F") + ", TC: " + TC.GetDouble().ToString("F") + ", ninf: " + ninf.ToString("F"));
                 //model.RemoveGoal(model.Goals.First());                              // remove goal for next model run       
 
                 if (form.doCompare)
