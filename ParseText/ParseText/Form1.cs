@@ -56,10 +56,15 @@ namespace ParseText
             button3.Enabled = true;
         }
 
+        private bool heading = false;
+
         public void reportErrors()
         {
-            WriteLine("% of results over 5% difference from manual:");
-            WriteLine(string.Join("\t", nLabels.Select(s => s).ToArray()));
+            if (!heading)
+            {
+                WriteLine(string.Join("\t", nLabels.Select(s => s).ToArray()));
+                heading = true;
+            }
             WriteLine(string.Join("\t", nLabels.Select((s, i) =>
             {
                 var err = Program._t95err[i];

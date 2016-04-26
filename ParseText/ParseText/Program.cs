@@ -310,7 +310,7 @@ namespace ParseText
             TestType testType = testmap[datalines];
 
             var f = Path.GetFileNameWithoutExtension(file);
-            form.WriteLine(testType.ToString() + "\t" + can(file));
+            //form.WriteLine(testType.ToString() + "\t" + can(file));
 
             if (testType == TestType.Cohesion)
             {
@@ -361,29 +361,18 @@ namespace ParseText
                 rg.Value = arr;
                 ws.Calculate();
 
+                excel.Run("RunSolver");
+
                 double chi2 = ws.Cells[3, 13].Value;
                 double N0 = ws.Cells[4, 13].Value;
                 double Ninf = ws.Cells[5, 13].Value;
                 double TC = ws.Cells[6, 13].Value;
 
-                form.WriteLine("after recalculation");
-                form.WriteLine("solve  n^2\tn0\tnInf\tTC");
-                form.WriteLine("before "+chi2.ToString("N2") + "\t" + N0.ToString("N2") + "\t" + Ninf.ToString("N2") + "\t" + TC.ToString("N2"));
-
-                excel.Run("RunSolver");
-
-                chi2 = ws.Cells[3, 13].Value;
-                N0 = ws.Cells[4, 13].Value;
-                Ninf = ws.Cells[5, 13].Value;
-                TC = ws.Cells[6, 13].Value;
-
-                form.WriteLine("after  " + chi2.ToString("N2") + "\t" + N0.ToString("N2") + "\t" + Ninf.ToString("N2") + "\t" + TC.ToString("N2"));
-
                 var solveCode = ws.Cells[12, 13].Value;
 
-                form.WriteLine("Solve result --> " + solveCode);
                 if (solveCode == 9.0 && first)
                 {
+                    form.WriteLine("Solve result --> " + solveCode);
                     first = false;
                     var tstout = Path.Combine(outpath, "SolverErr.xlsm");
                     ws.SaveAs(tstout);
@@ -405,14 +394,16 @@ namespace ParseText
                     //var xlf = addedzero.Select(d => new Reading(d.time, xlv[1] + (xlv[2] - xlv[1]) * (1 - Math.Exp(-d.time / xlv[3]))));
                     //var fit = addedzero.Select(d => new Reading(d.time, N0.GetDouble() + (ninf - N0.GetDouble()) * (1 - Math.Exp(-d.time / TC.GetDouble()))));
                     var t95fit = new double[] { chi2, N0, Ninf, TC, TC * t95 };
-                    t95fit.Select((t, i) =>
+                    var err = t95fit.Select((t, i) =>
                     {
                         var m = _t95man[can(file)][i];
                         var e = Math.Abs(m - t) / (m == 0 ? 1 : m);
                         _t95err[i].Add(e);
-                        return 1;
-                        }).ToList();
-                    }
+                        return e;
+                    }).ToList();
+                    if (err.Any(e => e > 0.05))
+                        form.WriteLine(string.Join("\t", err.Select(s => s.ToString("N2")))+"\t"+can(file));
+                }
             }
             if (testType == TestType.Oscillation)
             {
