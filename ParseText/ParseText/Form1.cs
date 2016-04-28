@@ -11,7 +11,7 @@ namespace ParseText
 {
     public partial class Form1 : Form
     {
-        public bool doCompare { get { return readManual.Checked; } set { readManual.Checked = value; readManual.Refresh(); }}
+        public bool doCharts { get { return graphsOn.Checked; } }
         public bool notoutset { get { return string.IsNullOrWhiteSpace(output.Text); } }
         public string outdir { get { return output.Text; } }
 
@@ -47,33 +47,12 @@ namespace ParseText
                 WriteLine("input " + s + " processed");
             }
 
-            if (doCompare)
-            {
-                reportErrors();
-            }
             WriteLine("Done");
             button3.BackColor = oldcolor;
             button3.Enabled = true;
         }
 
         private bool heading = false;
-
-        public void reportErrors()
-        {
-            if (!heading)
-            {
-                WriteLine(string.Join("\t", nLabels.Select(s => s).ToArray()));
-                heading = true;
-            }
-            WriteLine(string.Join("\t", nLabels.Select((s, i) =>
-            {
-                var err = Program._t95err[i];
-                //Program._t95err[i].Clear();
-                return (err.Count(q => q > 0.05) * 100.0 / err.Count()).ToString("N2");
-            })));
-            nLabels.Select((s, i) => { Program._t95err[i].Clear(); return 1; }).ToList();
-        }
-
 
         private void button1_Click(object sender, EventArgs e)
         {

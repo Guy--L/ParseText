@@ -177,16 +177,6 @@ namespace ParseText
             }
             form.WriteLine(data + " folder exists");
 
-            if (form.doCompare)
-            {
-                var manxl = Directory.GetFiles(data, "*.xlsm").FirstOrDefault(f => f.Contains("Manual"));
-                if (manxl != null) ReadManualXL(manxl);
-                else {
-                    form.WriteLine("No manual files to read for comparison");
-                    form.doCompare = false;
-                }
-            }
-
             _currentsample = request[2];
 
             var outfilename = string.Format(_outfilename, string.Join(" ", request.Take(2)), request[2]) + ".xlsm";
@@ -237,9 +227,6 @@ namespace ParseText
             }
 
             outxl.SaveAs(outfile);
-
-            if (form.doCompare)
-                form.reportErrors();
 
             //form.WriteLine("saved as " + outfilename);
         }
@@ -328,19 +315,19 @@ namespace ParseText
                 int rows = rowmap[(int)TestType.Lather];
                 object[,] arr = new object[rows, 4];
 
-                var setup = lines.Skip(firstline).Take(rowmap[(int)TestType.Lather]).Select((s, i) =>
+                List<Reading> setup = lines.Skip(firstline).Take(rowmap[(int)TestType.Lather]).Select((s, i) =>
                 {
                     var a = s.Split('\t');
                     if (a.Length < 4)
                     {
                         Debug.WriteLine("no data at i: " + i);
-                        return 0;
+                        return null;
                     }
                     arr[i, 0] = double.Parse(a[0]);
                     arr[i, 1] = double.Parse(a[1]);
                     arr[i, 2] = double.Parse(a[2]);
                     arr[i, 3] = double.Parse(a[3]);
-                    return 1;
+                    return new Reading(s);
                 }).ToList();
 
                 if (excel == null)
@@ -384,25 +371,24 @@ namespace ParseText
                 outrow.Cell(9).SetValue(TC);
                 outrow.Cell(10).SetValue(TC * t95);
 
-                //var addedzero = (new List<Reading>() { new Reading(0, N0.GetDouble()) }).Concat(setup);
+                var addedzero = (new List<Reading>() { new Reading(0, N0) }).Concat(setup);
 
                 //model.RemoveGoal(model.Goals.First());                              // remove goal for next model run       
 
-                if (form.doCompare)
+                if (form.doCharts)
                 {
-                    var xlv = _t95man[can(file)];
+                    //var xlv = _t95man[can(file)];
                     //var xlf = addedzero.Select(d => new Reading(d.time, xlv[1] + (xlv[2] - xlv[1]) * (1 - Math.Exp(-d.time / xlv[3]))));
-                    //var fit = addedzero.Select(d => new Reading(d.time, N0.GetDouble() + (ninf - N0.GetDouble()) * (1 - Math.Exp(-d.time / TC.GetDouble()))));
-                    var t95fit = new double[] { chi2, N0, Ninf, TC, TC * t95 };
-                    var err = t95fit.Select((t, i) =>
+                    Dictionary<string, List<Reading>> Series = new Dictionary<string, List<Reading>>();
+                    Series["readings"] = setup.ToList();
+                    if (N0 < 1000.0)
                     {
-                        var m = _t95man[can(file)][i];
-                        var e = Math.Abs(m - t) / (m == 0 ? 1 : m);
-                        _t95err[i].Add(e);
-                        return e;
-                    }).ToList();
-                    if (err.Any(e => e > 0.05))
-                        form.WriteLine(string.Join("\t", err.Select(s => s.ToString("N2")))+"\t"+can(file));
+                        var fit = addedzero.Select(d => d==null?null: new Reading(d.time, N0 + (Ninf - N0) * (1 - Math.Exp(-d.time / TC))));
+                        Series["fit"] = fit.ToList();
+                    }
+
+                    var title = can(file) + " (chi2 = " + chi2.ToString("e3") + ")";
+                    ChartSeries(title, Series);
                 }
             }
             if (testType == TestType.Oscillation)
