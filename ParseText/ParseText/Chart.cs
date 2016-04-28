@@ -62,8 +62,14 @@ namespace ParseText
                 c.Series.Add(t);
                 t.ChartArea = "Lather";
             }
-            var chartpath = form.notoutset ? _data : form.outdir;
-            var filename = Path.Combine(chartpath, _currentsample + "_" + name.Split('(')[0]);
+            string chartpath = _data;
+            string outname = _currentsample + "_" + name.Split('(')[0];
+            if (!form.notoutset) {
+                chartpath = Path.Combine(form.outdir, _currentsample);
+                Directory.CreateDirectory(chartpath);
+                outname = name.Split('(')[0];
+            }
+            var filename = Path.Combine(chartpath, outname);
             //form.WriteLine("saving chart " + filename);
             c.SaveImage(filename + ".png", ChartImageFormat.Png);
         }
