@@ -65,9 +65,8 @@ namespace ParseText
             string chartpath = _data;
             string outname = _currentsample + "_" + name.Split('(')[0];
             if (!form.notoutset) {
-                chartpath = Path.Combine(form.outdir, _currentsample);
+                chartpath = Path.Combine(form.outdir, _currentsample + " Graphs");
                 Directory.CreateDirectory(chartpath);
-                outname = name.Split('(')[0];
             }
             var filename = Path.Combine(chartpath, outname);
             //form.WriteLine("saving chart " + filename);
