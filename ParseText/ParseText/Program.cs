@@ -190,6 +190,7 @@ namespace ParseText
             string samplename = "";
             ILookup<string, string> samples = null;
 
+            int outrowi = 0;
             foreach (var row in insh.Rows())
             {
                 if (row.RowNumber() < 2)
@@ -199,7 +200,7 @@ namespace ParseText
                     continue;
                 }
                 string sample = row.Cell(4).GetValue<string>();
-                var outrowi = row.RowNumber() + 2;
+                outrowi = row.RowNumber() + 2;
                 var outrow = _outsh.Row(outrowi);
                 if (samplename != sample)
                 {
@@ -225,6 +226,8 @@ namespace ParseText
                     ReadFile(file, outrow);
                 }
             }
+            _outsh.Range(outrowi + 1, 1, 64, 27).Clear(XLClearOptions.Formats);
+            _outsh.Columns(3, 4).AdjustToContents();
 
             outxl.SaveAs(outfile);
 
@@ -356,6 +359,8 @@ namespace ParseText
                 double TC = ws.Cells[6, 13].Value;
 
                 var solveCode = ws.Cells[12, 13].Value;
+
+                excel.Run("FinishSolver");
 
                 if (solveCode == 9.0 && first)
                 {
