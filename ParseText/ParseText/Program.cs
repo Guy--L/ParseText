@@ -191,6 +191,8 @@ namespace ParseText
             ILookup<string, string> samples = null;
 
             int outrowi = 0;
+            form.WriteLine(string.Format("{0,6} {1,6} {2,6} {3,6} {4,6}", "N^2", "N0", "Ninf", "TC", "can"));
+
             foreach (var row in insh.Rows())
             {
                 if (row.RowNumber() < 2)
@@ -298,6 +300,14 @@ namespace ParseText
 
         static bool first = true;
 
+        static double[] lastSolve = new double[]
+        {
+            double.NaN,
+            double.NaN,
+            double.NaN,
+            double.NaN
+        };
+
         static void ReadFile(string file, IXLRow outrow)
         {
             var lines = File.ReadAllLines(file);
@@ -338,6 +348,7 @@ namespace ParseText
                     return new Reading(s);
                 }).ToList();
 
+                bool rc = false;
                 if (excel == null)
                 {
                     excel = new xl.Application();
@@ -349,8 +360,8 @@ namespace ParseText
                     start = ws.Cells[4, 2];
                     end = ws.Cells[3 + rows, 5];
                     rg = ws.get_Range(start, end);
-                    var rc = excel.Run("CheckSolver");
-                    form.WriteLine("Solver checks out? " + rc);
+                    rc = excel.Run("CheckSolver");
+                    form.WriteLine("Solver installed ok? " + rc);
                 }
 
                 rg.Value = arr;
@@ -363,9 +374,16 @@ namespace ParseText
                 double Ninf = ws.Cells[5, 13].Value;
                 double TC = ws.Cells[6, 13].Value;
 
+                var same = (lastSolve[0] == chi2 && lastSolve[1] == N0 && lastSolve[2] == Ninf && lastSolve[3] == TC);
+                lastSolve[0] = chi2;
+                lastSolve[1] = N0;
+                lastSolve[2] = Ninf;
+                lastSolve[3] = TC;
+
                 var solveCode = ws.Cells[12, 13].Value;
 
                 excel.Run("FinishSolver");
+                form.WriteLine(string.Format("{0,6:N2} {1,6:N2} {2,6:N2} {3,6:N2} {4,6}", chi2, N0, Ninf, TC, can(file)));
 
                 if (solveCode == 9.0 && first)
                 {
