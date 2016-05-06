@@ -228,6 +228,11 @@ namespace ParseText
             }
             _outsh.Range(outrowi + 1, 1, 64, 27).Clear(XLClearOptions.Formats);
             _outsh.Columns(3, 4).AdjustToContents();
+            IXLColumn col1 = _outsh.Column(3);
+            IXLColumn col2 = _outsh.Column(4);
+
+            col1.Width *= 1.1;
+            col2.Width *= 1.1;
 
             outxl.SaveAs(outfile);
 
