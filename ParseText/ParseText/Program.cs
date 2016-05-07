@@ -237,6 +237,7 @@ namespace ParseText
             col2.Width *= 1.1;
 
             outxl.SaveAs(outfile);
+            outxl.Dispose();
 
             //form.WriteLine("saved as " + outfilename);
         }
