@@ -88,7 +88,6 @@ namespace ParseText
 
             var docs = Directory.GetFiles(MyDir, "*.xlsm");
 
-            form.WriteLine("Test\tFilename");
             foreach (var d in docs)
             {
                 ReadControlXL(d);
@@ -191,7 +190,7 @@ namespace ParseText
             ILookup<string, string> samples = null;
 
             int outrowi = 0;
-            form.WriteLine(string.Format("{0,6} {1,6} {2,6} {3,6} {4,6}", "N^2", "N0", "Ninf", "TC", "can"));
+            //form.WriteLine(string.Format("{0,6} {1,6} {2,6} {3,6} {4,6}", "N^2", "N0", "Ninf", "TC", "can"));
 
             foreach (var row in insh.Rows())
             {
@@ -384,7 +383,7 @@ namespace ParseText
                 var solveCode = ws.Cells[12, 13].Value;
 
                 excel.Run("FinishSolver");
-                form.WriteLine(string.Format("{0,6:N2} {1,6:N2} {2,6:N2} {3,6:N2} {4,6}", chi2, N0, Ninf, TC, can(file)));
+                //form.WriteLine(string.Format("{0,6:N2} {1,6:N2} {2,6:N2} {3,6:N2} {4,6}", chi2, N0, Ninf, TC, can(file)));
 
                 if (solveCode == 9.0 && first)
                 {
