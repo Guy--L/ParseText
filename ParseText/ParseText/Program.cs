@@ -201,14 +201,17 @@ namespace ParseText
                     continue;
                 }
                 string sample = row.Cell(4).GetValue<string>();
+                var blank = string.IsNullOrWhiteSpace(sample);
 
-                if (outrowi == 0 && !string.IsNullOrWhiteSpace(sample))
+                if (outrowi == 0 && !blank)
                     outrowi = row.RowNumber() + 2;
-                else
+                else {
+                    if (blank) continue;
                     outrowi++;
+                }
 
                 var outrow = _outsh.Row(outrowi);
-                if (samplename != sample && !string.IsNullOrWhiteSpace(sample))
+                if (samplename != sample && !blank)
                 {
                     samples = LoadSampleFiles(data, sample);
                     samplename = sample;
@@ -258,7 +261,7 @@ namespace ParseText
             releaseObject(start);
             releaseObject(end);
             releaseObject(ws);
-            if (wb != null) wb.Close(true, Type.Missing, Type.Missing);
+            if (wb != null) wb.Close(false, Type.Missing, Type.Missing);
             releaseObject(wb);
             releaseObject(wbs);
             if (excel != null)
