@@ -201,9 +201,14 @@ namespace ParseText
                     continue;
                 }
                 string sample = row.Cell(4).GetValue<string>();
-                outrowi = row.RowNumber() + 2;
+
+                if (outrowi == 0 && !string.IsNullOrWhiteSpace(sample))
+                    outrowi = row.RowNumber() + 2;
+                else
+                    outrowi++;
+
                 var outrow = _outsh.Row(outrowi);
-                if (samplename != sample)
+                if (samplename != sample && !string.IsNullOrWhiteSpace(sample))
                 {
                     samples = LoadSampleFiles(data, sample);
                     samplename = sample;
