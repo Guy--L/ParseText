@@ -17,8 +17,8 @@ namespace NewParse
                 Console.WriteLine(Path.GetFileNameWithoutExtension(file));
                 var lines = File.ReadAllLines(file);
                 int last = 0;
-                var count = lines.Select((s, i) => new { line = s, num = i }).Where(s => s.line == "[step]").Select(s => { Console.WriteLine(s.num-last); last = s.num; return s.num; }).ToList();
-                Console.WriteLine(lines.Count()-last);
+                var count = lines.Select((s, i) => new { line = s, num = i }).Where(s => s.line == "[step]").Select(s => { Console.WriteLine(s.num-last-4); last = s.num; return s.num; }).ToList();
+                Console.WriteLine(lines.Count()-last-4);
             }
             Console.ReadKey();
         }
