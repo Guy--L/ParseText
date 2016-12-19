@@ -36,6 +36,7 @@ mes/Resources/BuildDate.txt
 ._*.csv
 BuildDate.txt
 app_data/*
+Data/*
 TestData/*
 TestBed - Copy/*
 TestBed/*
