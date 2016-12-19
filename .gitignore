@@ -49,3 +49,5 @@ Issue*/*
 .DS_Store
 ._.DS_Store
 */*.png
+ParseText/ParseText/Data/
+*.zil

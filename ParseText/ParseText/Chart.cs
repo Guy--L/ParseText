@@ -20,6 +20,9 @@ namespace ParseText
 
         static void ChartSeries(string name, Dictionary<string, List<Reading>> series)
         {
+            if (series == null)
+                return;
+
             var c = new Chart() { Size = new Size(1920, 1080) };
             c.Titles.Add("Normal vs Time for " + _currentsample + " " + name);
             c.Titles[0].Font = new Font("Arial", 14, FontStyle.Bold);
