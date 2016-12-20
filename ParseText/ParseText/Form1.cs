@@ -90,7 +90,7 @@ namespace ParseText
             Properties.Settings.Default["indirectories"] = ins;
             Properties.Settings.Default["outdirectory"] = output.Text;
             Properties.Settings.Default.Save();
-            Program.Release();
+            Lather.Release();                       // remove excel objects from memory
         }
 
         private void inputs_MouseDoubleClick(object sender, MouseEventArgs e)

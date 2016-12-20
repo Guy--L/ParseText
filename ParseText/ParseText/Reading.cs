@@ -5,7 +5,7 @@ using System.Text;
 
 namespace ParseText
 {
-    class Reading
+    public class Reading
     {
         public double stress;
         public double strain;

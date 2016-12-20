@@ -4,6 +4,7 @@ using System.Linq;
 using fm = System.Windows.Forms;
 using ClosedXML.Excel;
 using System.Configuration;
+using System.Collections.Generic;
 
 namespace ParseText
 {
@@ -14,6 +15,9 @@ namespace ParseText
         private static string _outfilename = @"{0} Rheology Analysis v3 with SPTT Entry Macro (MACRO v4.1) {1}";
         private static string _outdirectory;
         private static string _currentsample;
+
+        public static Dictionary<string, List<Reading>> Series;
+        public static string postitle;
 
         public static Form1 form;
 
@@ -191,11 +195,6 @@ namespace ParseText
             //form.WriteLine("saved as " + outfilename);
         }
 
-        public static void Release()
-        {
-            Test.Release();
-        }
-
         //private static List<string> Issue3 = new List<string> {
         //    "G-0033f",
         //    "L-0058f"
@@ -204,12 +203,16 @@ namespace ParseText
         static void ReadFile(string file, IXLRow outrow)
         {
             var lines = File.ReadAllLines(file);
-            Test test = new Test(lines, outrow);
+            var count = lines.Count() - 10;
+
+            var test = TestFactory.GetTest(count);
+            test.outrow = outrow;
+            test.lines = lines;
 
             test.Analyze();
 
-            var title = can(file) + test.postitle;
-            ChartSeries(title, test.Series);
+            ChartSeries(can(file) + postitle, Series);      // runs only if Series is non-null from Lather tests
+            Series = null;
         }
     }
 }
