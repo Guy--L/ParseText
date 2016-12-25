@@ -1,7 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Diagnostics;
 using System.Linq;
-using System.Text;
 
 namespace ParseText
 {
@@ -36,6 +34,11 @@ namespace ParseText
             var ypstrain = (iline.intercept - mline.intercept) / (mline.slope - iline.slope);
             var ypt = readings.TakeWhile(s => s.strain < ypstrain);
             var ypi = readings.Skip(ypt.Count() - 1).Take(2);
+            if (ypi.Count() < 2)
+            {
+                ypi = readings.Skip(ypt.Count() - 2).Take(2);
+                Debug.WriteLine("redid to " + (ypt.Count() - 2));
+            }
             var yp = ypi.ToArray();
 
             var ypstress = (yp[1].stress - yp[0].stress) / (yp[1].strain - yp[0].strain) * (ypstrain - yp[0].strain) + yp[0].stress;

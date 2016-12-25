@@ -1,9 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
-using System.IO;
 using System.Linq;
-using System.Runtime.InteropServices;
 using ClosedXML.Excel;
 
 namespace ParseText
@@ -13,7 +10,7 @@ namespace ParseText
         private static List<int[]> rangemap = new List<int[]>()
         {
             new int[] { -2, -1 },
-            new int[] { 0, 3 },
+            new int[] { 0, 7 },
             new int[] { 130, 160 },
             new int[] { 190, 210 },
             new int[] { 400, 430 },
@@ -30,11 +27,17 @@ namespace ParseText
             () => new Oscillation(),
         };
 
+        public static Test GetTest(string[] inlines)
+        {
+            var count = inlines.Count();
+            return inlines.Any(n => n == "[step]") ? new All() : GetTest(count);
+        }
+
         public static Test GetTest(int count)
         {
             var type = rangemap.Select((v, i) => new { range = v, index = i })
-                                .Where(r => r.range[0] <= count && count <= r.range[1])
-                                .Select(r => r.index).SingleOrDefault();
+                .Where(r => r.range[0] <= count && count <= r.range[1])
+                .Select(r => r.index).SingleOrDefault();
             return test[type]();
         }
     }
@@ -52,10 +55,5 @@ namespace ParseText
         public Test() {}
 
         public virtual void Analyze() { }
-
-        public void TestAnalyze()
-        {
-            Program.form.WriteLine(GetType().Name);
-        }
     }
 }

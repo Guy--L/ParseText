@@ -205,7 +205,7 @@ namespace ParseText
             var lines = File.ReadAllLines(file);
             var count = lines.Count() - 10;
 
-            var test = TestFactory.GetTest(count);
+            var test = TestFactory.GetTest(lines);
             test.outrow = outrow;
             test.lines = lines;
 

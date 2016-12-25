@@ -1,4 +1,5 @@
-﻿using System.Linq;
+﻿using System.Diagnostics;
+using System.Linq;
 
 namespace ParseText
 {
@@ -14,7 +15,7 @@ namespace ParseText
             var last = 0;
             var count = lines.Select((s, i) => new { line = s, num = i })
                              .Where(s => s.line == "[step]")
-                             .Select(s => { last = s.num; return s.num - last - 4; }).ToList();
+                             .Select(s => { var cnt = s.num - last - 4; last = s.num; return cnt; }).ToList();
 
             count.Add(lines.Count() - last - 4);
             var pos = 4;
