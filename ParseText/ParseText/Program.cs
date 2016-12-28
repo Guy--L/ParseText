@@ -5,6 +5,8 @@ using fm = System.Windows.Forms;
 using ClosedXML.Excel;
 using System.Configuration;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.Threading;
 
 namespace ParseText
 {
@@ -14,6 +16,7 @@ namespace ParseText
         private static string _infileprefix = @"Rheology Form Filled In ";
         private static string _outfilename = @"{0} Rheology Analysis v3 with SPTT Entry Macro (MACRO v4.1) {1}";
         private static string _outdirectory;
+        private static string _exportcmd;
         private static string _currentsample;
 
         public static Dictionary<string, List<Reading>> Series;
@@ -27,6 +30,7 @@ namespace ParseText
             _infileprefix = Properties.Settings.Default["infileprefix"].ToString();
             _outfilename = Properties.Settings.Default["outfilename"].ToString();
             _outdirectory = ConfigurationManager.AppSettings["outdirectory"];
+            _exportcmd = ConfigurationManager.AppSettings["exportcmd"];
 
             if (args.Length == 0) {
                 args = new string[] { "." };
@@ -95,11 +99,17 @@ namespace ParseText
 
             if (samplefiles.Count() == 0)
             {
+                filemask = sample + "*.tri";
+                samplefiles = Directory.GetFiles(dir, filemask);
+            }
+            if (samplefiles.Count() == 0)
+            {
+                filemask = sample + "*.txt";
                 filemask = filemask.Insert(_currentsample.Length, "-");
                 samplefiles = Directory.GetFiles(dir, filemask);
             }
             //Console.WriteLine(samplefiles.Count() + " samples in " + dir + " " + filemask);
-            return samplefiles.ToLookup(k => Program.can(k), v => v);
+            return samplefiles.ToLookup(k => can(k).ToUpper(), v => v);
         }
 
         private static IXLWorksheet _outsh;
@@ -178,7 +188,8 @@ namespace ParseText
 
                 foreach (var file in samples[can])
                 {
-                    ReadFile(file, outrow);
+                    var refile = ExportFile(file);
+                    ReadFile(refile, outrow);
                 }
             }
             _outsh.Range(outrowi + 1, 1, 64, 27).Clear(XLClearOptions.Formats);
@@ -195,6 +206,65 @@ namespace ParseText
             //form.WriteLine("saved as " + outfilename);
         }
 
+        static cmdShell cmd = null;
+
+        static void test_onData(cmdShell sender, string e)
+        {
+            Debug.WriteLine("d "+e);
+        }
+
+        static void onChanged(object source, FileSystemEventArgs e)
+        {
+            // Specify what is done when a file is changed, created, or deleted.
+            Debug.WriteLine("File: " + e.FullPath + " " + e.ChangeType);
+            lock (sync)
+            {
+                Monitor.Pulse(sync);
+                Debug.WriteLine("pulsed");
+            }
+        }
+
+        static void onCreated(object source, FileSystemEventArgs e)
+        {
+            Debug.WriteLine("+ ");
+            lock (sync)
+            {
+                Monitor.Pulse(sync);
+            }
+        }
+
+        static FileSystemWatcher watch = null;
+        static object sync = null;
+
+        static string ExportFile(string file)
+        {
+            if (Path.GetExtension(file).ToLower() != ".tri")
+                return file;
+
+            var dir = Path.GetDirectoryName(file);
+
+            if (sync == null) sync = new object();
+            if (cmd == null)
+            {
+                cmd = new cmdShell();
+                cmd.onData += test_onData;
+            }
+
+            if (watch == null)
+            {
+                watch = new FileSystemWatcher();
+                watch.Changed += onChanged;
+            }
+            watch.Path = dir;
+            watch.Filter = "*.txt";
+            watch.EnableRaisingEvents = true;
+
+            cmd.writewait(string.Format(_exportcmd, file), sync);
+            
+            return Path.ChangeExtension(file, "txt");
+        }
+
+
         //private static List<string> Issue3 = new List<string> {
         //    "G-0033f",
         //    "L-0058f"
@@ -202,6 +272,7 @@ namespace ParseText
 
         static void ReadFile(string file, IXLRow outrow)
         {
+            Debug.WriteLine(file);
             var lines = File.ReadAllLines(file);
             var count = lines.Count() - 10;
 

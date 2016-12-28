@@ -18,6 +18,8 @@ namespace ParseText
         public override void Analyze()
         {
             var readings = lines.Skip(firstline).Select(s => new Reading(s));
+            Debug.WriteLine(lines.Skip(firstline).First());
+            Debug.WriteLine("readings " + readings.Count());
             var initial = readings.Skip(initialskip).Take(initialtake);
             var final = readings.Skip(finalskip).Take(finaltake);
 
@@ -33,6 +35,7 @@ namespace ParseText
 
             var ypstrain = (iline.intercept - mline.intercept) / (mline.slope - iline.slope);
             var ypt = readings.TakeWhile(s => s.strain < ypstrain);
+            Debug.WriteLine("ypt " + ypt.Count());
             var ypi = readings.Skip(ypt.Count() - 1).Take(2);
             if (ypi.Count() < 2)
             {
@@ -48,6 +51,7 @@ namespace ParseText
             var bpstress = (bp[1].stress - bp[0].stress) / (bp[1].strain - bp[0].strain) * (bpstrain - bp[0].strain) + bp[0].stress;
 
             var cross = readings.Skip(1).TakeWhile(s => s.prime >= s.dprime);
+            Debug.WriteLine("cross " + cross.Count());
             var crx = readings.Skip(cross.Count()).Take(2);
             var cr = crx.ToArray();
 

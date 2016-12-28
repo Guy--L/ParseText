@@ -19,8 +19,8 @@ namespace ParseText
 
         private static List<Func<Test>> test = new List<Func<Test>>()
         {
-            () => new All(),
-            () => new Trim(),
+            () => new Trim(),               // line count not in one of the ranges
+            () => new Trim(),               
             () => new Lather(),
             () => new Cohesion(),
             () => new Fract_Band(),

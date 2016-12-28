@@ -1,4 +1,5 @@
-﻿using System.Diagnostics;
+﻿using System;
+using System.Diagnostics;
 using System.Linq;
 
 namespace ParseText
@@ -23,10 +24,20 @@ namespace ParseText
             {
                 var test = TestFactory.GetTest(type);
                 test.outrow = outrow;
-                test.firstline = 4;
+                test.firstline = 0;
 
                 test.lines = lines.Skip(pos).Take(test.Take(type - 1)).ToArray();
-                test.Analyze();
+
+                try
+                {
+                    test.Analyze();
+                }
+                catch (Exception e)
+                {
+                    Debug.WriteLine($"Error analyzing {test.GetType().Name} test: {e.Message}");
+                    Debug.WriteLine($"Error stack: {e.StackTrace}");
+//                    Program.form.WriteLine();
+                }
 
                 pos += type + 4;
             }
