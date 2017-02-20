@@ -28,7 +28,7 @@ namespace ParseText
         static void Main(string[] args)
         {
             _infileprefix = Properties.Settings.Default["infileprefix"].ToString();
-            _outfilename = Properties.Settings.Default["outfilename"].ToString();
+            _outfilename = ConfigurationManager.AppSettings["outfilename"];
             _outdirectory = ConfigurationManager.AppSettings["outdirectory"];
             _exportcmd = ConfigurationManager.AppSettings["exportcmd"];
 
@@ -272,7 +272,6 @@ namespace ParseText
 
         static void ReadFile(string file, IXLRow outrow)
         {
-            Debug.WriteLine(file);
             var lines = File.ReadAllLines(file);
             var count = lines.Count() - 10;
 
@@ -280,6 +279,8 @@ namespace ParseText
             test.outrow = outrow;
             test.lines = lines;
 
+            Debug.WriteLine($"file {file}");
+            test.file = file;
             test.Analyze();
 
             ChartSeries(can(file) + postitle, Series);      // runs only if Series is non-null from Lather tests

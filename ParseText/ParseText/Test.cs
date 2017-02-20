@@ -51,6 +51,7 @@ namespace ParseText
         public int firstline = 9;
         public string[] lines { get; set; }
         public IXLRow outrow { get; set; }
+        public string file { get; set; }
 
         public Test() {}
 

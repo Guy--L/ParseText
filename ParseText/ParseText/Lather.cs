@@ -43,7 +43,8 @@ namespace ParseText
                 var a = s.Split('\t');
                 if (a.Length < 4)
                 {
-                    Program.form.WriteLine("no data at i: " + i);
+                    Program.form.WriteLine("file: "+Path.GetFileName(file));
+                    Program.form.WriteLine("missing data at row " + i);
                     return null;
                 }
                 arr[i, 0] = double.Parse(a[0]);

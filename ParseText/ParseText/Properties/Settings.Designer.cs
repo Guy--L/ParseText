@@ -32,15 +32,6 @@ namespace ParseText.Properties {
             }
         }
         
-        [global::System.Configuration.ApplicationScopedSettingAttribute()]
-        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("{0} Rheology Analysis v3 with SPTT Entry Macro (MACRO v4.1) {1}")]
-        public string outfilename {
-            get {
-                return ((string)(this["outfilename"]));
-            }
-        }
-        
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("C:\\\\results")]
@@ -55,7 +46,7 @@ namespace ParseText.Properties {
         
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("C:\\\\ra\\\\TestData")]
+        [global::System.Configuration.DefaultSettingValueAttribute("C:\\\\Process")]
         public string indirectories {
             get {
                 return ((string)(this["indirectories"]));
